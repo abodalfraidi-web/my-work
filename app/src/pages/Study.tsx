@@ -1,6 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useState } from "react";
 import { db } from "../db";
+import { Icon } from "../Icon";
 import { BackHeader, useToast, ask } from "../ui";
 import { addDays, shortDate, todayISO } from "../utils";
 import { reviewMemo } from "./Today";
@@ -30,7 +31,7 @@ function Timer({ onFinish }: { onFinish: (minutes: number) => void }) {
   return (
     <div style={{ textAlign: "center" }}>
       <div style={{ fontSize: 52, fontWeight: 700, fontVariantNumeric: "tabular-nums", letterSpacing: 2 }}>{mm}:{ss}</div>
-      {startedAt ? <button className="btn green block" onClick={stop}>⏹ خلصت</button>
+      {startedAt ? <button className="btn green block" onClick={stop}>خلصت</button>
         : <button className="btn primary block" onClick={start}>▶️ ابدأ جلسة مذاكرة</button>}
     </div>
   );
@@ -50,7 +51,7 @@ export function Study({ onBack }: { onBack: () => void }) {
     if (!mins) return;
     await db.study.add({ subject: subject.trim() || "عام", minutes: mins, note: "", date: today, createdAt: Date.now() });
     try { localStorage.setItem("masari.subject", subject); } catch { /* ignore */ }
-    setMinutes(""); toast(`انسجلت ${mins} دقيقة ✓`);
+    setMinutes(""); toast(`انسجلت ${mins} دقيقة`);
   }
 
   const days = Array.from({ length: 7 }, (_, i) => addDays(today, i - 6));
@@ -72,7 +73,7 @@ export function Study({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="card">
-        <h3>📊 آخر 7 أيام <span className="muted small">{Math.round(week / 6) / 10} ساعة</span></h3>
+        <h3>آخر 7 أيام <span className="muted small">{Math.round(week / 6) / 10} ساعة</span></h3>
         <div className="bars">
           {perDay.map((v, i) => (
             <div className="b" key={i}><div style={{ height: `${(v / max) * 100}%` }} /><span>{shortDate(days[i]).split(" ")[0]}</span></div>
@@ -81,13 +82,13 @@ export function Study({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="card">
-        <h3>📖 الحفظ والمراجعة</h3>
+        <h3>الحفظ والمراجعة</h3>
         <p className="muted small" style={{ marginTop: 0 }}>كل مقطع تحفظه يرجع لك للمراجعة بفترات متباعدة (بكرة، بعد يومين، أسبوع...) عشان يثبت.</p>
         <div className="row">
           <input className="input" placeholder="مثال: سورة الملك ١-١٠" value={memoTitle} onChange={(e) => setMemoTitle(e.target.value)} />
           <button className="btn primary" disabled={!memoTitle.trim()} onClick={async () => {
             await db.memo.add({ title: memoTitle.trim(), addedOn: today, nextReview: addDays(today, 1), intervalDays: 1, reviews: 0, createdAt: Date.now() });
-            setMemoTitle(""); toast("انضاف للحفظ ✓");
+            setMemoTitle(""); toast("انضاف للحفظ");
           }}>+</button>
         </div>
         {(memo ?? []).map((m) => {
@@ -97,8 +98,8 @@ export function Study({ onBack }: { onBack: () => void }) {
               <div className="grow">{m.title}<div className="muted small">{due ? "مستحق المراجعة الحين" : `المراجعة ${shortDate(m.nextReview)}`} · راجعته {m.reviews} مرة</div></div>
               {due ? <>
                 <button className="btn ghost" style={{ color: "var(--danger)" }} onClick={() => reviewMemo(m, false)}>نسيت</button>
-                <button className="btn green" onClick={() => reviewMemo(m, true)}>✓</button>
-              </> : <button className="btn danger" onClick={async () => (await ask("تحذف؟")) && db.memo.delete(m.id!)}>✕</button>}
+                <button className="btn green" onClick={() => reviewMemo(m, true)}><Icon name="check" size={16} /></button>
+              </> : <button className="btn danger" onClick={async () => (await ask("تحذف؟")) && db.memo.delete(m.id!)}><Icon name="x" size={16} /></button>}
             </div>
           );
         })}

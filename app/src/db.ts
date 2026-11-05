@@ -33,6 +33,7 @@ export interface JournalEntry {
   date: string;
   text: string;
   mood: number; // 1..5
+  photoIds?: number[];
   createdAt: number;
 }
 
@@ -94,6 +95,60 @@ export interface MemoItem {
   createdAt: number;
 }
 
+/** صورة محفوظة داخل الجهاز (مصغّرة) */
+export interface Photo {
+  id?: number;
+  blob: Blob;
+  date: string;
+  caption: string;
+  createdAt: number;
+}
+
+export interface Book {
+  id?: number;
+  title: string;
+  author: string;
+  lang: "ar" | "en";
+  status: "want" | "reading" | "done";
+  totalPages: number;
+  currentPage: number;
+  notes: string;
+  startedOn: string | null;
+  finishedOn: string | null;
+  createdAt: number;
+}
+
+/** نص للقراءة داخل التطبيق (إنجليزي غالباً) */
+export interface ReadingText {
+  id?: number;
+  title: string;
+  content: string;
+  level: string;
+  source: "pasted" | "file" | "ai";
+  progress: number; // 0..1
+  createdAt: number;
+}
+
+export interface VocabWord {
+  id?: number;
+  word: string;
+  meaning: string; // بالعربي
+  example: string;
+  nextReview: string;
+  intervalDays: number;
+  reviews: number;
+  createdAt: number;
+}
+
+/** تحليلات المساعد المحفوظة (عني، فترات) عشان نتابع التطور */
+export interface Insight {
+  id?: number;
+  kind: "me" | "period";
+  title: string;
+  content: string;
+  createdAt: number;
+}
+
 export interface ChatMessage {
   id?: number;
   role: "user" | "assistant";
@@ -112,6 +167,11 @@ export const db = new Dexie("masari") as Dexie & {
   study: EntityTable<StudySession, "id">;
   memo: EntityTable<MemoItem, "id">;
   chat: EntityTable<ChatMessage, "id">;
+  photos: EntityTable<Photo, "id">;
+  books: EntityTable<Book, "id">;
+  texts: EntityTable<ReadingText, "id">;
+  vocab: EntityTable<VocabWord, "id">;
+  insights: EntityTable<Insight, "id">;
 };
 
 db.version(1).stores({
@@ -126,10 +186,19 @@ db.version(1).stores({
   memo: "++id, nextReview",
   chat: "++id, createdAt",
 });
+db.version(2).stores({
+  photos: "++id, date",
+  books: "++id, status",
+  texts: "++id, createdAt",
+  vocab: "++id, nextReview, word",
+  insights: "++id, kind, createdAt",
+});
 
-const TABLES = [
+// الصور ما تدخل في النسخة الاحتياطية النصية (حجمها كبير)
+export const TABLES = [
   "tasks", "goals", "journal", "expenses", "debts",
   "people", "interactions", "study", "memo", "chat",
+  "books", "texts", "vocab", "insights",
 ] as const;
 
 export async function exportAll(): Promise<string> {
@@ -145,9 +214,10 @@ export async function importAll(json: string): Promise<void> {
   }
   await db.transaction("rw", TABLES.map((t) => db.table(t)), async () => {
     for (const t of TABLES) {
+      if (!Array.isArray(parsed.data[t])) continue;
       await db.table(t).clear();
       const rows = parsed.data[t];
-      if (Array.isArray(rows)) await db.table(t).bulkAdd(rows);
+      if (Array.isArray(rows)) await db.table(t).bulkPut(rows);
     }
   });
 }
@@ -162,4 +232,29 @@ export async function findOrCreatePerson(name: string): Promise<number> {
   return (await db.people.add({
     name: clean, relation: "", notes: "", analysis: "", analysisAt: null, createdAt: Date.now(),
   })) as number;
+}
+
+export async function isEmpty(): Promise<boolean> {
+  for (const t of TABLES) if ((await db.table(t).count()) > 0) return false;
+  return true;
+}
+
+/** يصغّر الصورة لـ 1280px ويحفظها */
+export async function addPhoto(file: Blob, date: string, caption = ""): Promise<number> {
+  const blob = await shrinkImage(file, 1280);
+  return (await db.photos.add({ blob, date, caption, createdAt: Date.now() })) as number;
+}
+
+export async function shrinkImage(file: Blob, max: number): Promise<Blob> {
+  try {
+    const bmp = await createImageBitmap(file);
+    const scale = Math.min(1, max / Math.max(bmp.width, bmp.height));
+    const canvas = document.createElement("canvas");
+    canvas.width = Math.round(bmp.width * scale);
+    canvas.height = Math.round(bmp.height * scale);
+    canvas.getContext("2d")!.drawImage(bmp, 0, 0, canvas.width, canvas.height);
+    return await new Promise<Blob>((res) => canvas.toBlob((b) => res(b ?? file), "image/jpeg", 0.85));
+  } catch {
+    return file;
+  }
 }

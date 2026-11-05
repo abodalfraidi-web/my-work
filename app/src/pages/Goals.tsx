@@ -2,6 +2,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { friendlyError, planGoal } from "../ai";
 import { db, type Goal } from "../db";
+import { Icon } from "../Icon";
 import { BackHeader, Check, Header, Markdown, Progress, Sheet, useAIText, useToast, ask } from "../ui";
 import { daysBetween, todayISO, uid } from "../utils";
 
@@ -21,7 +22,7 @@ function GoalEditor({ open, onClose }: { open: boolean; onClose: () => void }) {
     setTitle(""); setWhy(""); setDeadline(""); onClose();
   }
   return (
-    <Sheet open={open} onClose={onClose} title="هدف جديد 🎯">
+    <Sheet open={open} onClose={onClose} title="هدف جديد ">
       <label className="field"><span>الهدف</span><input className="input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: أحفظ جزء عمّ" /></label>
       <label className="field"><span>ليش هذا الهدف مهم لك؟</span><textarea className="textarea" value={why} onChange={(e) => setWhy(e.target.value)} /></label>
       <label className="field"><span>التصنيف</span>
@@ -55,7 +56,7 @@ function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
     const items = plan.split("\n").map((l) => l.match(/^\s*[-*]\s*\[ \]\s*(.+)$/)?.[1]?.trim()).filter(Boolean) as string[];
     if (!items.length) { toast("ما لقيت مراحل في الخطة"); return; }
     await update({ milestones: [...goal.milestones, ...items.map((t) => ({ id: uid(), title: t.replace(/\*\*/g, ""), done: false }))] });
-    toast(`انضافت ${items.length} مراحل ✓`);
+    toast(`انضافت ${items.length} مراحل`);
   }
 
   return (
@@ -66,18 +67,18 @@ function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
           <span className="chip accent">{goal.category}</span>
           {goal.deadline && <span className="muted small">باقي {daysBetween(todayISO(), goal.deadline)} يوم</span>}
         </div>
-        {goal.why && <p style={{ margin: "0 0 10px" }}>💡 {goal.why}</p>}
+        {goal.why && <p style={{ margin: "0 0 10px" }}>{goal.why}</p>}
         <Progress value={goal.milestones.length ? done / goal.milestones.length : 0} />
         <div className="muted small" style={{ marginTop: 6 }}>{done} من {goal.milestones.length} مراحل</div>
       </div>
 
       <div className="card">
-        <h3>🪜 المراحل</h3>
+        <h3>المراحل</h3>
         {goal.milestones.map((m) => (
           <div className="list-item" key={m.id}>
             <Check on={m.done} onClick={() => update({ milestones: goal.milestones.map((x) => (x.id === m.id ? { ...x, done: !x.done } : x)) })} />
             <div className={`grow ${m.done ? "done-text" : ""}`}>{m.title}</div>
-            <button className="btn danger" onClick={() => update({ milestones: goal.milestones.filter((x) => x.id !== m.id) })}>✕</button>
+            <button className="btn danger" onClick={() => update({ milestones: goal.milestones.filter((x) => x.id !== m.id) })}><Icon name="x" size={16} /></button>
           </div>
         ))}
         <div className="row" style={{ marginTop: 8 }}>
@@ -90,7 +91,7 @@ function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
       </div>
 
       <div className="card">
-        <h3>🧠 خطة المساعد
+        <h3>خطة المساعد
           <button className="btn ghost" onClick={makePlan} disabled={ai.busy}>{ai.busy ? "يخطط..." : plan ? "خطة جديدة" : "خطط لي"}</button>
         </h3>
         {ai.error && <div className="error">{ai.error}</div>}
@@ -101,7 +102,7 @@ function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
 
       {tasks && tasks.length > 0 && (
         <div className="card">
-          <h3>✅ مهام مرتبطة</h3>
+          <h3>مهام مرتبطة</h3>
           {tasks.map((t) => (
             <div className="list-item" key={t.id}>
               <Check on={t.done} onClick={() => db.tasks.update(t.id!, { done: !t.done })} />
@@ -113,8 +114,8 @@ function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
       )}
 
       <div className="grid2">
-        <button className="btn" onClick={() => update({ status: goal.status === "paused" ? "active" : "paused" })}>{goal.status === "paused" ? "▶️ تفعيل" : "⏸ إيقاف مؤقت"}</button>
-        <button className="btn green" onClick={() => update({ status: goal.status === "done" ? "active" : "done" })}>{goal.status === "done" ? "↩️ إرجاع" : "🏆 تحقق!"}</button>
+        <button className="btn" onClick={() => update({ status: goal.status === "paused" ? "active" : "paused" })}>{goal.status === "paused" ? "▶️ تفعيل" : "إيقاف مؤقت"}</button>
+        <button className="btn green" onClick={() => update({ status: goal.status === "done" ? "active" : "done" })}>{goal.status === "done" ? "إرجاع" : "تحقق!"}</button>
       </div>
       <button className="btn danger block" style={{ marginTop: 8 }} onClick={async () => {
         if (await ask("تحذف الهدف؟")) { await db.goals.delete(goal.id!); onBack(); }
@@ -130,7 +131,7 @@ export function Goals() {
   const open = goals?.find((g) => g.id === openId);
   if (open) return <GoalDetail goal={open} onBack={() => setOpenId(null)} />;
 
-  const groups: [string, Goal["status"]][] = [["نشطة", "active"], ["متوقفة", "paused"], ["تحققت 🏆", "done"]];
+  const groups: [string, Goal["status"]][] = [["نشطة", "active"], ["متوقفة", "paused"], ["تحققت ", "done"]];
   return (
     <>
       <Header title="أهدافي" sub="وين أبي أوصل" right={<button className="btn primary" onClick={() => setAdding(true)}>+ هدف</button>} />

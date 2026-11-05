@@ -1,18 +1,19 @@
 import { useState } from "react";
 import { friendlyError, parseCapture, type CaptureActionT } from "./ai";
-import { db, findOrCreatePerson } from "./db";
+import { addPhoto, db, findOrCreatePerson, shrinkImage } from "./db";
+import { Icon } from "./Icon";
 import { addDays, EXPENSE_CATEGORIES, money, todayISO, uid } from "./utils";
-import { Sheet, useToast } from "./ui";
+import { PhotoPicker, PhotoThumb, Sheet, useToast } from "./ui";
 
 const KIND_LABEL: Record<CaptureActionT["kind"], string> = {
-  expense: "💸 مصروف",
-  task: "✅ مهمة",
-  journal: "📔 يومية",
-  interaction: "👤 تواصل",
-  debt: "🤝 دين",
-  study: "📚 مذاكرة",
-  memorize: "📖 حفظ",
-  goal: "🎯 هدف",
+  expense: "مصروف",
+  task: "مهمة",
+  journal: "يومية",
+  interaction: "تواصل",
+  debt: "دين",
+  study: "مذاكرة",
+  memorize: "حفظ",
+  goal: "هدف",
 };
 
 export async function saveAction(a: CaptureActionT): Promise<void> {
@@ -84,17 +85,18 @@ export function CaptureSheet({ open, onClose }: { open: boolean; onClose: () => 
   const [error, setError] = useState<string | null>(null);
   const [actions, setActions] = useState<(CaptureActionT & { _id: string; _on: boolean })[] | null>(null);
   const [reply, setReply] = useState("");
+  const [images, setImages] = useState<Blob[]>([]);
 
   function reset() {
-    setInput(""); setActions(null); setReply(""); setError(null);
+    setInput(""); setActions(null); setReply(""); setError(null); setImages([]);
   }
   function close() { reset(); onClose(); }
 
   async function analyze() {
-    if (!input.trim()) return;
+    if (!input.trim() && !images.length) return;
     setBusy(true); setError(null);
     try {
-      const res = await parseCapture(input, EXPENSE_CATEGORIES);
+      const res = await parseCapture(input, EXPENSE_CATEGORIES, images);
       setActions(res.actions.map((a) => ({ ...a, _id: uid(), _on: true })));
       setReply(res.reply);
     } catch (e) {
@@ -108,38 +110,53 @@ export function CaptureSheet({ open, onClose }: { open: boolean; onClose: () => 
     if (!actions) return;
     const chosen = actions.filter((a) => a._on);
     for (const a of chosen) await saveAction(a);
-    toast(`انحفظ ${chosen.length} ✓`);
+    // صور اليوم تنحفظ مع اليومية
+    const journal = chosen.find((a) => a.kind === "journal");
+    if (journal) for (const img of images) await addPhoto(img, journal.date ?? todayISO());
+    toast(`انحفظ ${chosen.length}`);
     close();
   }
 
   return (
-    <Sheet open={open} onClose={close} title="وش صار؟">
+    <Sheet open={open} onClose={close} title="وش صار اليوم؟">
       {!actions ? (
         <>
           <textarea
             className="textarea"
             style={{ minHeight: 150 }}
             autoFocus
-            placeholder={"اكتب أو اضغط 🎙️ في الكيبورد وتكلم...\n\nمثال: صرفت 35 قهوة و120 بنزين، وجلست مع زياد اليوم وقال إنه ناوي يغير شغله، وذكرني بكرة الساعة 4 أتصل على أبوي"}
+            placeholder={"اكتب، أو اضغط المايك في الكيبورد وتكلم...\n\nمثال: صرفت 35 قهوة و120 بنزين، وجلست مع زياد اليوم وقال إنه ناوي يغير شغله، وذكرني بكرة الساعة 4 أتصل على أبوي"}
             value={input}
             onChange={(e) => setInput(e.target.value)}
           />
-          <p className="muted small">تقدر تقول أكثر من شي بنفس الوقت: مصاريف، مهام، ديون، يومك، جلسة مع شخص، مذاكرة، حفظ.</p>
+          {images.length > 0 && (
+            <div className="photos" style={{ margin: "8px 0" }}>
+              {images.map((b, i) => <PhotoThumb key={i} blob={b} onDelete={() => setImages(images.filter((_, j) => j !== i))} />)}
+            </div>
+          )}
+          <div className="row" style={{ margin: "8px 0" }}>
+            <PhotoPicker label="صورة أو فاتورة" onPick={async (files) => {
+              const small = await Promise.all(files.slice(0, 4).map((f) => shrinkImage(f, 1280)));
+              setImages([...images, ...small].slice(0, 4));
+            }} />
+            <span className="muted small grow">صوّر الفاتورة ويسجّل المصروف لحاله</span>
+          </div>
+          <p className="muted small">احكي عن يومك بالتفصيل: وش سويت، مين قابلت، وش صرفت، وش حسيت. المساعد يسجّل كل شي ويعلّق على يومك.</p>
           {error && <div className="error">{error}</div>}
-          <button className="btn primary block" onClick={analyze} disabled={busy || !input.trim()}>
-            {busy ? "أرتّب كلامك..." : "رتّبها لي ✨"}
+          <button className="btn primary block" onClick={analyze} disabled={busy || (!input.trim() && !images.length)}>
+            <Icon name="spark" size={18} /> {busy ? "أرتّب كلامك..." : "رتّبها لي"}
           </button>
         </>
       ) : (
         <>
-          {reply && <div className="card">{reply}</div>}
+          {reply && <div className="card" style={{ whiteSpace: "pre-wrap" }}>{reply}</div>}
           {actions.length === 0 && <div className="empty">ما لقيت شي أسجّله. جرّب توضّح أكثر.</div>}
           {actions.map((a) => (
             <div className="card row" key={a._id} style={{ opacity: a._on ? 1 : 0.45 }}>
               <button
                 className={`check ${a._on ? "on" : ""}`}
                 onClick={() => setActions(actions.map((x) => (x._id === a._id ? { ...x, _on: !x._on } : x)))}
-              >{a._on ? "✓" : ""}</button>
+              >{a._on ? <Icon name="check" size={16} strokeWidth={2.6} /> : null}</button>
               <div className="grow">
                 <div className="row" style={{ justifyContent: "space-between" }}>
                   <span className="chip accent">{KIND_LABEL[a.kind]}</span>

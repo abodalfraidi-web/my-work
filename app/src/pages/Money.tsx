@@ -1,6 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { db, type Debt } from "../db";
+import { Icon } from "../Icon";
 import { BackHeader, Progress, Sheet, ask } from "../ui";
 import { EXPENSE_CATEGORIES, money, shortDate, todayISO } from "../utils";
 
@@ -67,7 +68,7 @@ function PayDebt({ debt, onClose }: { debt: Debt | null; onClose: () => void }) 
       <p className="muted">الباقي {money(left)}</p>
       <input className="input" inputMode="decimal" autoFocus placeholder="المبلغ المسدد" value={amount} onChange={(e) => setAmount(e.target.value)} />
       <div className="grid2" style={{ marginTop: 10 }}>
-        <button className="btn green" onClick={async () => { await db.debts.update(debt.id!, { paid: debt.amount }); onClose(); }}>سددت الكل ✓</button>
+        <button className="btn green" onClick={async () => { await db.debts.update(debt.id!, { paid: debt.amount }); onClose(); }}>سددت الكل</button>
         <button className="btn primary" disabled={!Number(amount)} onClick={async () => {
           await db.debts.update(debt.id!, { paid: Math.min(debt.amount, debt.paid + Number(amount)) }); onClose();
         }}>سجّل الدفعة</button>
@@ -98,8 +99,8 @@ export function Money({ onBack }: { onBack: () => void }) {
     <>
       <BackHeader title="فلوسي" onBack={onBack} right={<button className="btn primary" onClick={() => (tab === "expenses" ? setAddExp(true) : setAddDebt(true))}>+ إضافة</button>} />
       <div className="chips" style={{ marginBottom: 12 }}>
-        <button className={`chip ${tab === "expenses" ? "on" : ""}`} onClick={() => setTab("expenses")}>💸 المصاريف</button>
-        <button className={`chip ${tab === "debts" ? "on" : ""}`} onClick={() => setTab("debts")}>🤝 الديون</button>
+        <button className={`chip ${tab === "expenses" ? "on" : ""}`} onClick={() => setTab("expenses")}>المصاريف</button>
+        <button className={`chip ${tab === "debts" ? "on" : ""}`} onClick={() => setTab("debts")}>الديون</button>
       </div>
 
       {tab === "expenses" ? (
@@ -115,12 +116,12 @@ export function Money({ onBack }: { onBack: () => void }) {
           )}
           <div className="card">
             <h3>السجل</h3>
-            {expenses?.length === 0 && <div className="empty">ما سجلت مصاريف هالشهر. قل للمايك "صرفت 25 غدا" 🎙️</div>}
+            {expenses?.length === 0 && <div className="empty">ما سجلت مصاريف هالشهر. قل للمايك "صرفت 25 غدا" </div>}
             {(expenses ?? []).map((e) => (
               <div className="list-item" key={e.id}>
                 <div className="grow">{e.note || e.category}<div className="muted small">{e.category} · {shortDate(e.date)}</div></div>
                 <b>{money(e.amount)}</b>
-                <button className="btn danger" onClick={async () => (await ask("تحذف؟")) && db.expenses.delete(e.id!)}>✕</button>
+                <button className="btn danger" onClick={async () => (await ask("تحذف؟")) && db.expenses.delete(e.id!)}><Icon name="x" size={16} /></button>
               </div>
             ))}
           </div>
@@ -132,14 +133,14 @@ export function Money({ onBack }: { onBack: () => void }) {
             <div className="stat"><div className="l">لي</div><div className="v" style={{ color: "var(--accent-2)" }}>{money(owedToMe)}</div></div>
           </div>
           <div className="card">
-            {debts?.length === 0 && <div className="empty">ما فيه ديون 👌</div>}
+            {debts?.length === 0 && <div className="empty">ما فيه ديون </div>}
             {(debts ?? []).sort((a, b) => Number(a.paid >= a.amount) - Number(b.paid >= b.amount)).map((d) => {
               const settled = d.paid >= d.amount;
               return (
                 <div className="list-item" key={d.id} onClick={() => setPaying(d)} style={{ cursor: "pointer", opacity: settled ? 0.5 : 1, display: "block" }}>
                   <div className="row" style={{ justifyContent: "space-between" }}>
                     <span><span className={`chip ${d.direction === "i_owe" ? "red" : "green"}`}>{d.direction === "i_owe" ? "علي" : "لي"}</span> {d.person}</span>
-                    <b>{settled ? "مسدد ✓" : money(d.amount - d.paid)}</b>
+                    <b>{settled ? "مسدد" : money(d.amount - d.paid)}</b>
                   </div>
                   <div style={{ margin: "6px 0" }}><Progress value={d.paid / d.amount} /></div>
                   <div className="muted small">{money(d.paid)} من {money(d.amount)}{d.dueDate ? ` · الاستحقاق ${d.dueDate}` : ""}{d.note ? ` · ${d.note}` : ""}</div>

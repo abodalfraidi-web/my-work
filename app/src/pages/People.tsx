@@ -2,6 +2,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { analyzePerson, friendlyError } from "../ai";
 import { db, type Person } from "../db";
+import { Icon } from "../Icon";
 import { BackHeader, Header, Markdown, Sheet, useAIText, ask } from "../ui";
 import { daysBetween, shortDate, todayISO } from "../utils";
 
@@ -29,7 +30,7 @@ function PersonDetail({ person, onBack }: { person: Person; onBack: () => void }
 
   return (
     <>
-      <BackHeader title={person.name} onBack={onBack} right={<button className="icon-btn" onClick={() => setEditing(true)}>✏️</button>} />
+      <BackHeader title={person.name} onBack={onBack} right={<button className="icon-btn" onClick={() => setEditing(true)}><Icon name="edit" size={18} /></button>} />
       <div className="card">
         <div className="row" style={{ justifyContent: "space-between" }}>
           <span className="chip accent">{person.relation || "بدون تصنيف"}</span>
@@ -39,13 +40,13 @@ function PersonDetail({ person, onBack }: { person: Person; onBack: () => void }
       </div>
 
       <div className="card">
-        <h3>💬 سجّل تواصل</h3>
-        <textarea className="textarea" value={note} onChange={(e) => setNote(e.target.value)} placeholder="وش صار؟ وش قال؟ (تقدر تستخدم مايك الكيبورد 🎙️)" />
+        <h3>سجّل تواصل</h3>
+        <textarea className="textarea" value={note} onChange={(e) => setNote(e.target.value)} placeholder="وش صار؟ وش قال؟ (تقدر تستخدم مايك الكيبورد )" />
         <button className="btn primary block" style={{ marginTop: 8 }} onClick={addInteraction} disabled={!note.trim()}>احفظ</button>
       </div>
 
       <div className="card">
-        <h3>🧠 تحليل الشخص
+        <h3>تحليل الشخص
           <button className="btn ghost" onClick={analyze} disabled={ai.busy || !log?.length}>{ai.busy ? "يحلل..." : analysis ? "حدّث التحليل" : "حلّل"}</button>
         </h3>
         {ai.error && <div className="error">{ai.error}</div>}
@@ -56,13 +57,13 @@ function PersonDetail({ person, onBack }: { person: Person; onBack: () => void }
       </div>
 
       <div className="card">
-        <h3>📜 السجل</h3>
+        <h3>السجل</h3>
         {log?.length === 0 && <div className="empty">ما فيه سجل بعد</div>}
         {(log ?? []).slice().reverse().map((i) => (
           <div className="list-item" key={i.id} style={{ alignItems: "flex-start" }}>
             <span className="chip" style={{ flex: "none" }}>{shortDate(i.date)}</span>
             <div className="grow" style={{ whiteSpace: "pre-wrap" }}>{i.text}</div>
-            <button className="btn danger" onClick={async () => (await ask("تحذف؟")) && db.interactions.delete(i.id!)}>✕</button>
+            <button className="btn danger" onClick={async () => (await ask("تحذف؟")) && db.interactions.delete(i.id!)}><Icon name="x" size={16} /></button>
           </div>
         ))}
       </div>
@@ -123,8 +124,8 @@ export function People() {
   return (
     <>
       <Header title="ناسي" sub="كل شخص وسجله وتحليله" right={<button className="btn primary" onClick={() => setAdding(true)}>+ شخص</button>} />
-      <input className="input" style={{ marginBottom: 12 }} placeholder="🔍 بحث" value={q} onChange={(e) => setQ(e.target.value)} />
-      {people?.length === 0 && <div className="card empty">ما فيه أحد بعد. اضغط ➕ وقل مثلاً "جلست مع زياد اليوم وقال..." وبينضاف تلقائياً.</div>}
+      <input className="input" style={{ marginBottom: 12 }} placeholder="بحث" value={q} onChange={(e) => setQ(e.target.value)} />
+      {people?.length === 0 && <div className="card empty">ما فيه أحد بعد. اضغط وقل مثلاً "جلست مع زياد اليوم وقال..." وبينضاف تلقائياً.</div>}
       {list.map((p) => {
         const l = last.get(p.id!);
         return (

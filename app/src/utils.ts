@@ -85,6 +85,12 @@ export const settings = {
   get name(): string {
     try { return localStorage.getItem("masari.name") ?? ""; } catch { return ""; }
   },
+  get avatar(): string {
+    try { return localStorage.getItem("masari.avatar") ?? ""; } catch { return ""; }
+  },
+  set avatar(v: string) {
+    try { localStorage.setItem("masari.avatar", v); } catch { /* ignore */ }
+  },
   set name(v: string) {
     try { localStorage.setItem("masari.name", v.trim()); } catch { /* ignore */ }
   },

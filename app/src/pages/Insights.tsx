@@ -49,7 +49,7 @@ export function Insights({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="card">
-        <h3>📈 نسبة الإنجاز اليومية</h3>
+        <h3>نسبة الإنجاز اليومية</h3>
         <div className="bars">
           {completion.map((v, i) => (
             <div className="b" key={i}><div style={{ height: `${v * 100}%`, background: "var(--accent-2)" }} /><span>{dayList[i].slice(8)}</span></div>
@@ -58,8 +58,11 @@ export function Insights({ onBack }: { onBack: () => void }) {
       </div>
 
       <div className="card">
-        <h3>🧠 تقرير المساعد
-          <button className="btn ghost" onClick={() => ai.run((onText) => analyzePeriod(days, onText), friendlyError)} disabled={ai.busy}>{ai.busy ? "يحلل..." : "حلّل"}</button>
+        <h3>تقرير المساعد
+          <button className="btn ghost" onClick={async () => {
+            const t = await ai.run((onText) => analyzePeriod(days, onText), friendlyError);
+            if (t) await db.insights.add({ kind: "period", title: `آخر ${days} يوم`, content: t, createdAt: Date.now() });
+          }} disabled={ai.busy}>{ai.busy ? "يحلل..." : "حلّل"}</button>
         </h3>
         {ai.error && <div className="error">{ai.error}</div>}
         {ai.text ? <Markdown text={ai.text} /> : !ai.busy && <div className="muted small">تحليل كامل لفترتك: الإنجاز، المزاج، الفلوس، العلاقات، والتوصيات. ({data?.interactions.length ?? 0} تواصل مسجل بالفترة)</div>}

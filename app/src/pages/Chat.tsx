@@ -51,7 +51,7 @@ export function Chat() {
       <div className="chat" style={{ paddingBottom: 80 }}>
         {messages?.length === 0 && streaming === null && (
           <div className="card">
-            <p style={{ marginTop: 0 }}>هلا 👋 أنا مساعدك. اسألني أي شي عن يومك وأهدافك.</p>
+            <p style={{ marginTop: 0 }}>هلا أنا مساعدك. اسألني أي شي عن يومك وأهدافك.</p>
             <div className="chips">{SUGGESTIONS.map((s) => <button key={s} className="chip" onClick={() => send(s)}>{s}</button>)}</div>
           </div>
         )}
@@ -63,7 +63,7 @@ export function Chat() {
         <div ref={endRef} />
       </div>
       <div className="chat-input">
-        <input className="input" value={input} onChange={(e) => setInput(e.target.value)} placeholder="اكتب أو استخدم المايك 🎙️"
+        <input className="input" value={input} onChange={(e) => setInput(e.target.value)} placeholder="اكتب أو استخدم المايك "
           onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) send(input); }} />
         <button className="btn primary" onClick={() => send(input)} disabled={!input.trim() || streaming !== null}>إرسال</button>
       </div>

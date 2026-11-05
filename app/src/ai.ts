@@ -60,6 +60,11 @@ export async function buildContext(): Promise<string> {
   const today = todayISO();
   const since30 = addDays(today, -30);
   const since14 = addDays(today, -14);
+  const [books, vocabCount, lastMe] = await Promise.all([
+    db.books.toArray(),
+    db.vocab.count(),
+    db.insights.where("kind").equals("me").last(),
+  ]);
   const [goals, tasks, journal, expenses, debts, people, study, memo] = await Promise.all([
     db.goals.toArray(),
     db.tasks.toArray(),
@@ -110,6 +115,15 @@ export async function buildContext(): Promise<string> {
   L.push("\n## الحفظ");
   for (const m of memo) L.push(`- ${m.title} | المراجعة الجاية ${m.nextReview} | مرات المراجعة ${m.reviews}`);
 
+  L.push("\n## القراءة والإنجليزي");
+  for (const b of books) L.push(`- [${b.status}] ${b.title} (${b.lang === "en" ? "إنجليزي" : "عربي"}) صفحة ${b.currentPage}/${b.totalPages || "?"}`);
+  L.push(`كلمات إنجليزية محفوظة: ${vocabCount}`);
+
+  if (lastMe) {
+    L.push(`\n## آخر تحليل كتبته عنه (${new Date(lastMe.createdAt).toISOString().slice(0, 10)})`);
+    L.push(lastMe.content.slice(0, 1500));
+  }
+
   return L.join("\n");
 }
 
@@ -133,12 +147,12 @@ const CaptureAction = z.object({
 });
 const CaptureResult = z.object({
   actions: z.array(CaptureAction),
-  reply: z.string().describe("رد قصير وودود على المستخدم بعد التسجيل"),
+  reply: z.string().describe("رد ودود: يأكد وش سجّل، وإذا حكى عن يومه يعطيه تعليق تحليلي قصير ونصيحة وحدة"),
 });
 export type CaptureActionT = z.infer<typeof CaptureAction>;
 export type CaptureResultT = z.infer<typeof CaptureResult>;
 
-export async function parseCapture(input: string, categories: string[]): Promise<CaptureResultT> {
+export async function parseCapture(input: string, categories: string[], images: Blob[] = []): Promise<CaptureResultT> {
   const people = (await db.people.toArray()).map((p) => p.name);
   const today = todayISO();
   const system = `${persona()}
@@ -155,7 +169,9 @@ export async function parseCapture(input: string, categories: string[]): Promise
 - memorize: حفظ جديد (قرآن أو غيره). title مثل "سورة الملك ١-١٠".
 - goal: هدف جديد. title، note = ليش.
 الأشخاص المعروفين: ${people.join("، ") || "لا أحد بعد"}. إذا الاسم يطابق واحد منهم استخدم نفس الكتابة.
-الحقول اللي ما تنطبق خلها null. ما تخترع معلومات مو في الكلام.`;
+إذا فيه صور: فاتورة أو إيصال = expense بالمبلغ الإجمالي والتصنيف المناسب. صورة من يومه = journal يوصفها باختصار.
+الحقول اللي ما تنطبق خلها null. ما تخترع معلومات مو في الكلام أو الصور.
+في reply: أكّد وش سجّلت بجملة، وإذا حكى عن يومه أو مشاعره علّق عليها بتحليل قصير صادق (جملتين) ونصيحة وحدة.`;
 
   const sample = await sampler();
   if (sample) {
@@ -165,7 +181,7 @@ export async function parseCapture(input: string, categories: string[]): Promise
 {"reply": "رد قصير وودود", "actions": [{"kind": "expense|task|journal|interaction|debt|study|memorize|goal", "summary": "وصف قصير", "title": null, "text": null, "amount": null, "category": null, "note": null, "date": null, "time": null, "personName": null, "direction": null, "mood": null, "minutes": null, "subject": null}]}
 
 كلام المستخدم:
-"""${input}"""`, { cache: false });
+"""${input || "(ما كتب شي، شوف الصور)"}"""`, { cache: false, ...(images.length ? { images } : {}) });
     const parsed = CaptureResult.safeParse(normalize(raw));
     if (!parsed.success) throw new Error("ما قدرت أفهم الكلام، جرّب تكتبه بشكل ثاني.");
     return parsed.data;
@@ -177,11 +193,27 @@ export async function parseCapture(input: string, categories: string[]): Promise
     ...FALLBACK,
     output_config: { effort: "low", format: betaZodOutputFormat(CaptureResult) },
     system,
-    messages: [{ role: "user", content: input }],
+    messages: [{
+      role: "user",
+      content: [
+        ...(await Promise.all(images.map(toImageBlock))),
+        { type: "text" as const, text: input || "(ما كتب شي، شوف الصور)" },
+      ],
+    }],
   });
   if (res.stop_reason === "refusal") throw new Error("المساعد ما قدر يعالج هذا الطلب.");
   if (!res.parsed_output) throw new Error("ما قدرت أفهم الكلام، جرّب تكتبه بشكل ثاني.");
   return res.parsed_output;
+}
+
+async function toImageBlock(b: Blob) {
+  const buf = new Uint8Array(await b.arrayBuffer());
+  let bin = "";
+  for (let i = 0; i < buf.length; i += 0x8000) bin += String.fromCharCode(...buf.subarray(i, i + 0x8000));
+  return {
+    type: "image" as const,
+    source: { type: "base64" as const, media_type: "image/jpeg" as const, data: btoa(bin) },
+  };
 }
 
 /** يكمّل الحقول الناقصة بـ null عشان يمر من التحقق */
@@ -303,5 +335,68 @@ export function morningBrief(onText: (s: string) => void) {
     messages: [{ role: "user", content: "وش المفروض أسوي اليوم؟" }],
     onText,
     effort: "medium",
+  });
+}
+
+export function analyzeMe(onText: (s: string) => void) {
+  return streamReply({
+    task: `اكتب تحليل شخصي عميق وصادق عن المستخدم من كل بياناته (اليوميات، المهام، الأهداف، المصاريف، العلاقات، المذاكرة، القراءة). لو فيه تحليل سابق قارن معه ووضّح وش تغيّر.
+اكتب بهذا الترتيب:
+## الصورة العامة
+جملتين عن شخصيته وأسلوب حياته كما تظهر في البيانات.
+## نقاط القوة
+3 إلى 5 نقاط، كل وحدة مع دليل من بياناته.
+## نقاط الضعف
+3 إلى 5 نقاط بصراحة ولطف، كل وحدة مع دليل.
+## الأنماط اللي لاحظتها
+عادات متكررة (أيام، أوقات، مزاج، صرف، علاقات).
+## خطة تطوير 30 يوم
+3 محاور فقط، لكل محور عادة يومية صغيرة ومقياس نجاح.
+## سؤال لك
+سؤال واحد يخليه يفكر.
+إذا البيانات قليلة قل ذلك بوضوح وركّز على اللي موجود.`,
+    messages: [{ role: "user", content: "حلّلني" }],
+    onText,
+    effort: "high",
+  });
+}
+
+const WordInfo = z.object({
+  meaning: z.string(),
+  explanation: z.string(),
+  example: z.string(),
+});
+export type WordInfoT = z.infer<typeof WordInfo>;
+
+export async function lookupWord(word: string, sentence: string): Promise<WordInfoT> {
+  const prompt = `اشرح الكلمة الإنجليزية "${word}" كما جاءت في هذي الجملة: "${sentence}".
+رد فقط بـ JSON: {"meaning": "المعنى بالعربي بكلمة أو كلمتين", "explanation": "شرح قصير بالعربي للمعنى في السياق ونوع الكلمة", "example": "جملة إنجليزية بسيطة جديدة فيها الكلمة"}`;
+  const sample = await sampler();
+  if (sample) {
+    const raw = await sample.json<Record<string, unknown>>(prompt, { modelTier: "quick" });
+    return WordInfo.parse({ meaning: String(raw.meaning ?? ""), explanation: String(raw.explanation ?? ""), example: String(raw.example ?? "") });
+  }
+  const res = await client().beta.messages.parse({
+    model: MODEL,
+    max_tokens: 1000,
+    ...FALLBACK,
+    output_config: { effort: "low", format: betaZodOutputFormat(WordInfo) },
+    messages: [{ role: "user", content: prompt }],
+  });
+  if (!res.parsed_output) throw new Error("ما قدرت أشرح الكلمة.");
+  return res.parsed_output;
+}
+
+export function writeReading(level: string, topic: string, knownWords: string[], onText: (s: string) => void) {
+  return streamReply({
+    task: `You write graded English reading texts for an Arabic-speaking learner.
+Level: ${level} (CEFR). Topic: ${topic || "something useful for daily life and self-improvement"}.
+Write ONE engaging text of about 250-350 words. Use natural English suited to the level, short paragraphs, and a title on the first line starting with "# ".
+Reuse some of these words the learner is studying, if they fit: ${knownWords.slice(0, 20).join(", ") || "none yet"}.
+Write only the text. No translation, no notes.`,
+    messages: [{ role: "user", content: "Write the text." }],
+    onText,
+    effort: "medium",
+    withContext: false,
   });
 }

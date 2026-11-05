@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
+import { Icon } from "./Icon";
 
 export function Sheet({ open, onClose, title, children }: {
   open: boolean; onClose: () => void; title?: string; children: ReactNode;
@@ -71,7 +72,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 export function Check({ on, onClick }: { on: boolean; onClick: () => void }) {
   return (
     <button className={`check ${on ? "on" : ""}`} onClick={onClick} aria-label="تم">
-      {on ? "✓" : ""}
+      {on ? <Icon name="check" size={16} strokeWidth={2.6} /> : null}
     </button>
   );
 }
@@ -96,7 +97,7 @@ export function BackHeader({ title, onBack, right }: { title: string; onBack: ()
   return (
     <div className="header">
       <div className="row">
-        <button className="icon-btn" onClick={onBack} aria-label="رجوع">→</button>
+        <button className="icon-btn" onClick={onBack} aria-label="رجوع"><Icon name="back" size={20} /></button>
         <h1 style={{ fontSize: 24 }}>{title}</h1>
       </div>
       {right}
@@ -138,5 +139,41 @@ export function AskHost() {
         <button className="btn" style={{ background: "var(--danger)", color: "#fff" }} onClick={() => finish(true)}>تأكيد</button>
       </div>
     </Sheet>
+  );
+}
+
+/** رابط مؤقت لعرض صورة محفوظة */
+export function useBlobUrl(blob: Blob | undefined): string | undefined {
+  const [url, setUrl] = useState<string>();
+  useEffect(() => {
+    if (!blob) { setUrl(undefined); return; }
+    const u = URL.createObjectURL(blob);
+    setUrl(u);
+    return () => URL.revokeObjectURL(u);
+  }, [blob]);
+  return url;
+}
+
+export function PhotoThumb({ blob, onDelete }: { blob: Blob; onDelete?: () => void }) {
+  const url = useBlobUrl(blob);
+  return (
+    <div className="photo-cell">
+      {url && <img src={url} alt="" />}
+      {onDelete && <button onClick={onDelete} aria-label="حذف الصورة"><Icon name="x" size={14} /></button>}
+    </div>
+  );
+}
+
+/** زر اختيار صورة (الآيفون يعرض الكاميرا أو الألبوم) */
+export function PhotoPicker({ onPick, label = "أضف صورة", multiple = true }: { onPick: (files: File[]) => void; label?: string; multiple?: boolean }) {
+  return (
+    <label className="btn" style={{ cursor: "pointer" }}>
+      <Icon name="camera" size={18} /> {label}
+      <input type="file" accept="image/*" multiple={multiple} hidden onChange={(e) => {
+        const files = Array.from(e.target.files ?? []);
+        if (files.length) onPick(files);
+        e.target.value = "";
+      }} />
+    </label>
   );
 }

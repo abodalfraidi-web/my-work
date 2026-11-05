@@ -1,13 +1,14 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useState } from "react";
-import { db } from "../db";
-import { BackHeader, useToast } from "../ui";
+import { addPhoto, db } from "../db";
+import { ask, BackHeader, PhotoPicker, PhotoThumb, useToast } from "../ui";
 import { formatDate, MOODS, todayISO } from "../utils";
 
 export function Journal({ onBack }: { onBack: () => void }) {
   const toast = useToast();
   const [date, setDate] = useState(todayISO());
   const entry = useLiveQuery(() => db.journal.where("date").equals(date).first(), [date]);
+  const photos = useLiveQuery(() => db.photos.where("date").equals(date).toArray(), [date]);
   const recent = useLiveQuery(() => db.journal.orderBy("date").reverse().limit(30).toArray(), []);
   const [text, setText] = useState("");
   const [mood, setMood] = useState(3);
@@ -20,7 +21,7 @@ export function Journal({ onBack }: { onBack: () => void }) {
   async function save() {
     if (entry?.id) await db.journal.update(entry.id, { text, mood });
     else await db.journal.add({ date, text, mood, createdAt: Date.now() });
-    toast("انحفظت ✓");
+    toast("انحفظت");
   }
 
   return (
@@ -37,8 +38,16 @@ export function Journal({ onBack }: { onBack: () => void }) {
             <button key={i} onClick={() => setMood(i + 1)} style={{ fontSize: 30, border: 0, background: mood === i + 1 ? "var(--card-2)" : "transparent", borderRadius: 14, padding: "4px 8px", opacity: mood === i + 1 ? 1 : 0.45, cursor: "pointer" }}>{m}</button>
           ))}
         </div>
-        <textarea className="textarea" style={{ minHeight: 200 }} value={text} onChange={(e) => setText(e.target.value)} placeholder="وش صار في يومك؟ وش حسيت؟ وش تعلمت؟ (مايك الكيبورد 🎙️ يسهّلها)" />
-        <button className="btn primary block" style={{ marginTop: 10 }} onClick={save} disabled={!text.trim()}>احفظ</button>
+        <textarea className="textarea" style={{ minHeight: 200 }} value={text} onChange={(e) => setText(e.target.value)} placeholder="وش صار في يومك؟ وش حسيت؟ وش تعلمت؟ (مايك الكيبورد يسهّلها)" />
+        {photos && photos.length > 0 && (
+          <div className="photos" style={{ marginTop: 10 }}>
+            {photos.map((ph) => <PhotoThumb key={ph.id} blob={ph.blob} onDelete={async () => { if (await ask("تحذف الصورة؟")) db.photos.delete(ph.id!); }} />)}
+          </div>
+        )}
+        <div className="grid2" style={{ marginTop: 10 }}>
+          <PhotoPicker onPick={async (files) => { for (const f of files) await addPhoto(f, date); toast("انضافت الصور"); }} label="صور اليوم" />
+          <button className="btn primary" onClick={save} disabled={!text.trim()}>احفظ</button>
+        </div>
       </div>
 
       <div className="section-title">آخر الأيام</div>

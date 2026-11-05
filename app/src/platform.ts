@@ -19,7 +19,7 @@ export interface SampleFn {
     modelTier?: "quick" | "default" | "complex";
     cache?: boolean;
   }): Promise<{ text: string; truncated: boolean }>;
-  json<T>(input: string, opts?: { modelTier?: "quick" | "default" | "complex"; cache?: boolean }): Promise<T>;
+  json<T>(input: string, opts?: { modelTier?: "quick" | "default" | "complex"; cache?: boolean; images?: Blob[] }): Promise<T>;
 }
 
 interface Downloads {
@@ -44,4 +44,72 @@ export async function saveFile(filename: string, data: string, mime: string): Pr
   a.click();
   setTimeout(() => URL.revokeObjectURL(a.href), 5000);
   return true;
+}
+
+/* ---------- مزامنة سحابية خاصة (داخل claude.ai فقط) ---------- */
+// تحفظ نسخة من بياناتك النصية في مساحتك الخاصة على claude.ai (ما يشوفها غيرك)
+// عشان ما تضيع لو انمسح المتصفح، وتنتقل معك بين الأجهزة.
+
+interface DocRef {
+  get(): Promise<{ exists: boolean; data(): Record<string, unknown> | undefined }>;
+  set(data: Record<string, unknown>): Promise<void>;
+  delete(): Promise<void>;
+}
+interface CloudDb { doc(path: string): DocRef }
+interface UserCap { id(): Promise<string | null> }
+
+const CHUNK = 60000; // حروف لكل وثيقة (الحد 256KB)
+
+async function cloudBase(): Promise<{ db: CloudDb; base: string } | null> {
+  const [db, user] = await Promise.all([capability<CloudDb>("db"), capability<UserCap>("user")]);
+  if (!db || !user) return null;
+  const id = await user.id().catch(() => null);
+  return id ? { db, base: `data/users/${id}` } : null;
+}
+
+export type SyncState = "off" | "idle" | "saving" | "saved" | "error";
+let syncState: SyncState = inArtifact ? "idle" : "off";
+let lastSaved: number | null = null;
+const listeners = new Set<() => void>();
+export const sync = {
+  get state() { return syncState; },
+  get lastSaved() { return lastSaved; },
+  subscribe(fn: () => void) { listeners.add(fn); return () => { listeners.delete(fn); }; },
+};
+function setSync(s: SyncState) { syncState = s; listeners.forEach((f) => f()); }
+
+export async function cloudSave(json: string): Promise<void> {
+  const c = await cloudBase();
+  if (!c) { setSync("off"); return; }
+  setSync("saving");
+  try {
+    const n = Math.ceil(json.length / CHUNK) || 1;
+    const meta = await c.db.doc(`${c.base}/backup-meta`).get();
+    const oldN = Number(meta.data()?.chunks ?? 0);
+    for (let i = 0; i < n; i++) {
+      await c.db.doc(`${c.base}/backup-chunk${i}`).set({ s: json.slice(i * CHUNK, (i + 1) * CHUNK) });
+    }
+    await c.db.doc(`${c.base}/backup-meta`).set({ chunks: n, at: Date.now() });
+    for (let i = n; i < oldN; i++) await c.db.doc(`${c.base}/backup-chunk${i}`).delete().catch(() => {});
+    lastSaved = Date.now();
+    setSync("saved");
+  } catch {
+    setSync("error");
+  }
+}
+
+export async function cloudLoad(): Promise<string | null> {
+  const c = await cloudBase();
+  if (!c) return null;
+  try {
+    const meta = await c.db.doc(`${c.base}/backup-meta`).get();
+    const n = Number(meta.data()?.chunks ?? 0);
+    if (!n) return null;
+    let json = "";
+    for (let i = 0; i < n; i++) json += String((await c.db.doc(`${c.base}/backup-chunk${i}`).get()).data()?.s ?? "");
+    lastSaved = Number(meta.data()?.at ?? 0) || null;
+    return json;
+  } catch {
+    return null;
+  }
 }
