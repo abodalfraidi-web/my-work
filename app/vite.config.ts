@@ -23,8 +23,8 @@ export default defineConfig({
         lang: "ar",
         dir: "rtl",
         display: "standalone",
-        background_color: "#0f1115",
-        theme_color: "#0f1115",
+        background_color: "#0a0e11",
+        theme_color: "#0a0e11",
         start_url: ".",
         icons: [
           { src: "icon-192.png", sizes: "192x192", type: "image/png" },

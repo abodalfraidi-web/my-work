@@ -123,7 +123,7 @@ export function People() {
 
   return (
     <>
-      <Header title="ناسي" sub="كل شخص وسجله وتحليله" right={<button className="btn primary" onClick={() => setAdding(true)}>+ شخص</button>} />
+      <Header eyebrow="MASARI · PEOPLE" title={<>ناسي <span className="hl">وعلاقاتي</span></>} sub="كل شخص وسجله وتحليله" right={<button className="btn primary" onClick={() => setAdding(true)}>+ شخص</button>} />
       <input className="input" style={{ marginBottom: 12 }} placeholder="بحث" value={q} onChange={(e) => setQ(e.target.value)} />
       {people?.length === 0 && <div className="card empty">ما فيه أحد بعد. اضغط وقل مثلاً "جلست مع زياد اليوم وقال..." وبينضاف تلقائياً.</div>}
       {list.map((p) => {

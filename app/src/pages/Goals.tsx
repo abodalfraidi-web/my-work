@@ -134,7 +134,7 @@ export function Goals() {
   const groups: [string, Goal["status"]][] = [["نشطة", "active"], ["متوقفة", "paused"], ["تحققت ", "done"]];
   return (
     <>
-      <Header title="أهدافي" sub="وين أبي أوصل" right={<button className="btn primary" onClick={() => setAdding(true)}>+ هدف</button>} />
+      <Header eyebrow="MASARI · GOALS" title={<>وين أبي <span className="hl">أوصل</span></>} right={<button className="btn primary" onClick={() => setAdding(true)}>+ هدف</button>} />
       {goals?.length === 0 && <div className="card empty">ابدأ بأول هدف. اكتب وش تبي توصل له وليش، والمساعد يخطط معك.</div>}
       {groups.map(([label, status]) => {
         const list = (goals ?? []).filter((g) => g.status === status);

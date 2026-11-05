@@ -1,6 +1,7 @@
 import { useEffect, useState } from "react";
 import { CaptureSheet } from "./Capture";
 import { Chat } from "./pages/Chat";
+import { Onboarding, needsOnboarding } from "./Onboarding";
 import { AboutMe } from "./pages/AboutMe";
 import { Goals } from "./pages/Goals";
 import { Library } from "./pages/Library";
@@ -36,7 +37,7 @@ function More({ go }: { go: (p: Page) => void }) {
   ];
   return (
     <>
-      <Header title="المزيد" />
+      <Header eyebrow="MASARI · ALL" title={<>كل <span className="hl">أقسامك</span></>} />
       {items.map(([p, i, t, s]) => (
         <button className="menu-item" key={p} onClick={() => go(p)}>
           <span className="i"><Icon name={i} /></span><span className="grow"><b>{t}</b><span className="muted small">{s}</span></span><span className="muted"><Icon name="chevron" size={18} /></span>
@@ -49,6 +50,7 @@ function More({ go }: { go: (p: Page) => void }) {
 export function App() {
   const [page, setPage] = useState<Page>(() => (settings.apiKey || inArtifact ? "today" : "settings"));
   const [capture, setCapture] = useState(false);
+  const [onboarding, setOnboarding] = useState(needsOnboarding);
   const go = (p: string) => { setPage(p as Page); window.scrollTo(0, 0); };
   const back = () => go("more");
   
@@ -59,6 +61,7 @@ export function App() {
   }, []);
 
   const tab = TAB_OF[page];
+  if (onboarding) return <div className="app"><Onboarding onDone={() => { setOnboarding(false); go("today"); }} /></div>;
   return (
     <div className="app">
       {page === "today" && <Today go={go} />}

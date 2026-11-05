@@ -75,7 +75,7 @@ export function Today({ go }: { go: (p: string) => void }) {
       <div className="header">
         <div>
           <div className="sub">{formatDate(today)}</div>
-          <h1>{greeting()}{name ? ` يا ${name}` : ""}</h1>
+          <h1>{greeting()}{name ? <> يا <span className="hl">{name}</span></> : null}</h1>
         </div>
         <button className="icon-btn" onClick={() => go("me")} aria-label="عني" style={{ padding: 0, overflow: "hidden" }}>
           {settings.avatar ? <img src={settings.avatar} alt="" style={{ width: "100%", height: "100%", objectFit: "cover" }} /> : <Icon name="me" size={20} />}
@@ -84,7 +84,7 @@ export function Today({ go }: { go: (p: string) => void }) {
 
       <div className="hero">
         <div className="row" style={{ justifyContent: "space-between" }}>
-          <b className="row" style={{ gap: 8 }}><Icon name="compass" size={20} />وش المفروض أسوي اليوم؟</b>
+          <b className="row" style={{ gap: 8 }}><Icon name="compass" size={20} className="title-icon" /><span>وش المفروض أسوي <span className="hl orange">اليوم؟</span></span></b>
           <button className="btn" onClick={() => brief.run(morningBrief, friendlyError)} disabled={brief.busy}>
             {brief.busy ? "..." : brief.text ? "تحديث" : "اسأل"}
           </button>
@@ -100,7 +100,7 @@ export function Today({ go }: { go: (p: string) => void }) {
       </div>
 
       <div className="card">
-        <h3>مهام اليوم <button className="btn ghost" onClick={() => setAdding(true)}><Icon name="plus" size={16} /> إضافة</button></h3>
+        <h3><span className="row">مهام اليوم {(tasks?.length ?? 0) > 0 && <span className="badge">{doneCount} من {tasks!.length}</span>}</span> <button className="btn ghost" onClick={() => setAdding(true)}><Icon name="plus" size={16} /> إضافة</button></h3>
         {tasks && tasks.length > 0 && <Progress value={doneCount / tasks.length} />}
         {sorted.length === 0 && <div className="empty">ما فيه مهام اليوم. اضغط زر المايك تحت وقل وش ناوي تسوي.</div>}
         {sorted.map((t) => (

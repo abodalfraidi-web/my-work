@@ -81,10 +81,11 @@ export function Progress({ value }: { value: number }) {
   return <div className="progress"><div style={{ width: `${Math.round(Math.max(0, Math.min(1, value)) * 100)}%` }} /></div>;
 }
 
-export function Header({ title, sub, right }: { title: string; sub?: string; right?: ReactNode }) {
+export function Header({ title, sub, right, eyebrow }: { title: ReactNode; sub?: string; right?: ReactNode; eyebrow?: string }) {
   return (
     <div className="header">
       <div>
+        {eyebrow && <div className="eyebrow">{eyebrow}</div>}
         <h1>{title}</h1>
         {sub && <div className="sub">{sub}</div>}
       </div>

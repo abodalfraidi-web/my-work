@@ -46,7 +46,7 @@ export function Chat() {
 
   return (
     <>
-      <Header title="المساعد" sub="يعرف أهدافك ويومك وفلوسك وناسك"
+      <Header eyebrow="MASARI · ASSISTANT" title={<>مساعدك <span className="hl">الذكي</span></>} sub="يعرف أهدافك ويومك وفلوسك وناسك"
         right={messages && messages.length > 0 ? <button className="btn ghost" onClick={async () => (await ask("تمسح المحادثة؟")) && db.chat.clear()}>مسح</button> : undefined} />
       <div className="chat" style={{ paddingBottom: 80 }}>
         {messages?.length === 0 && streaming === null && (
