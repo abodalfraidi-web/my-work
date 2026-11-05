@@ -1,6 +1,7 @@
 import { useRef, useState } from "react";
 import { exportAll, importAll } from "../db";
-import { BackHeader, useToast } from "../ui";
+import { inArtifact, saveFile } from "../platform";
+import { BackHeader, useToast, ask } from "../ui";
 import { settings, todayISO } from "../utils";
 
 export function Settings({ onBack }: { onBack: () => void }) {
@@ -10,19 +11,14 @@ export function Settings({ onBack }: { onBack: () => void }) {
   const fileRef = useRef<HTMLInputElement>(null);
 
   async function backup() {
-    const json = await exportAll();
-    const file = new File([json], `masari-backup-${todayISO()}.json`, { type: "application/json" });
-    if (navigator.canShare?.({ files: [file] })) {
-      try { await navigator.share({ files: [file], title: "نسخة مساري" }); return; } catch { /* المستخدم ألغى */ }
-    }
-    const a = document.createElement("a");
-    a.href = URL.createObjectURL(file); a.download = file.name; a.click();
+    const ok = await saveFile(`masari-backup-${todayISO()}.json`, await exportAll(), "application/json");
+    if (!ok) toast("ما قدرت أحفظ الملف هنا");
   }
 
   async function restore(f: File) {
-    if (!confirm("الاسترجاع يستبدل كل البيانات الحالية. متأكد؟")) return;
+    if (!(await ask("الاسترجاع يستبدل كل البيانات الحالية. متأكد؟"))) return;
     try { await importAll(await f.text()); toast("رجعت بياناتك ✓"); }
-    catch (e) { alert(e instanceof Error ? e.message : "فشل الاسترجاع"); }
+    catch (e) { toast(e instanceof Error ? e.message : "فشل الاسترجاع"); }
   }
 
   return (
@@ -30,13 +26,17 @@ export function Settings({ onBack }: { onBack: () => void }) {
       <BackHeader title="الإعدادات" onBack={onBack} />
       <div className="card">
         <label className="field"><span>اسمك</span><input className="input" value={name} onChange={(e) => setName(e.target.value)} /></label>
+        {inArtifact ? (
+          <p className="muted small">✨ النسخة التجريبية متصلة بحسابك في Claude مباشرة، ما تحتاج مفتاح.</p>
+        ) : <>
         <label className="field"><span>مفتاح Claude API</span>
           <input className="input" type="password" dir="ltr" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-ant-..." />
         </label>
         <p className="muted small" style={{ marginTop: 0 }}>
           تطلعه من console.anthropic.com ← API Keys. المفتاح ينحفظ في جوالك بس، ويروح مباشرة لـ Anthropic. حط حد صرف شهري للمفتاح من نفس الموقع للأمان.
         </p>
-        <button className="btn primary block" onClick={() => { settings.name = name; settings.apiKey = key; toast("انحفظ ✓"); }}>احفظ</button>
+        </>}
+        <button className="btn primary block" onClick={() => { settings.name = name; if (!inArtifact) settings.apiKey = key; toast("انحفظ ✓"); }}>احفظ</button>
       </div>
 
       <div className="card">

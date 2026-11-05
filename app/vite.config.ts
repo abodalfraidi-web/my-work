@@ -1,13 +1,17 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import { VitePWA } from "vite-plugin-pwa";
+import { viteSingleFile } from "vite-plugin-singlefile";
 
 // On GitHub Pages the app lives under /<repo>/
 const base = process.env.BASE_PATH ?? "/";
+// ARTIFACT=1 يبني ملف HTML واحد للنسخة التجريبية داخل claude.ai
+const artifact = process.env.ARTIFACT === "1";
 
 export default defineConfig({
   base,
-  plugins: [
+  build: artifact ? { outDir: "dist-artifact" } : undefined,
+  plugins: artifact ? [react(), viteSingleFile()] : [
     react(),
     VitePWA({
       registerType: "autoUpdate",

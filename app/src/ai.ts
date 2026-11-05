@@ -2,6 +2,7 @@ import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { db } from "./db";
+import { capability, inArtifact, type SampleFn } from "./platform";
 import { addDays, settings, todayISO } from "./utils";
 
 const MODEL = "claude-opus-5-5";
@@ -12,6 +13,20 @@ export class NoKeyError extends Error {
   constructor() { super("ما فيه مفتاح Claude. حطّه من الإعدادات."); }
 }
 
+/** داخل claude.ai: نستخدم حساب Claude حقك بدون مفتاح */
+async function sampler(): Promise<SampleFn | null> {
+  return inArtifact ? capability<SampleFn>("sample") : null;
+}
+
+const SAMPLE_ERRORS: Record<string, string> = {
+  not_granted: "لازم تسمح للصفحة تستخدم Claude (من نافذة الإذن).",
+  sampling_disabled: "Claude مو متاح لحسابك هنا.",
+  rate_limited: "وصلت حد الاستخدام مؤقتاً، جرّب بعد شوي.",
+  refused: "المساعد ما قدر يعالج هذا الطلب، جرّب صياغة ثانية.",
+  invalid_json: "ما قدرت أرتب الكلام، جرّب مرة ثانية أو وضّح أكثر.",
+  session_expired: "سجّل دخولك في Claude من جديد.",
+};
+
 function client(): Anthropic {
   const apiKey = settings.apiKey;
   if (!apiKey) throw new NoKeyError();
@@ -20,6 +35,10 @@ function client(): Anthropic {
 }
 
 export function friendlyError(e: unknown): string {
+  if (e && typeof e === "object" && "code" in e && typeof (e as { code: unknown }).code === "string") {
+    const code = (e as { code: string }).code;
+    return SAMPLE_ERRORS[code] ?? "صار خطأ في الاتصال بـ Claude، جرّب مرة ثانية.";
+  }
   if (e instanceof NoKeyError) return e.message;
   if (e instanceof Anthropic.AuthenticationError) return "المفتاح غلط أو منتهي. راجعه من الإعدادات.";
   if (e instanceof Anthropic.RateLimitError) return "ضغط كثير على الخدمة، جرّب بعد دقيقة.";
@@ -122,12 +141,7 @@ export type CaptureResultT = z.infer<typeof CaptureResult>;
 export async function parseCapture(input: string, categories: string[]): Promise<CaptureResultT> {
   const people = (await db.people.toArray()).map((p) => p.name);
   const today = todayISO();
-  const res = await client().beta.messages.parse({
-    model: MODEL,
-    max_tokens: 4000,
-    ...FALLBACK,
-    output_config: { effort: "low", format: betaZodOutputFormat(CaptureResult) },
-    system: `${persona()}
+  const system = `${persona()}
 
 مهمتك الحين: المستخدم كتب أو قال كلام حر، حوّله لسجلات في التطبيق. الكلام الواحد ممكن يحتوي أكثر من سجل.
 اليوم ${today} (${new Date().toLocaleDateString("ar-SA-u-ca-gregory", { weekday: "long" })}). حوّل "بكرة" و"الخميس" ونحوها لتواريخ.
@@ -141,12 +155,50 @@ export async function parseCapture(input: string, categories: string[]): Promise
 - memorize: حفظ جديد (قرآن أو غيره). title مثل "سورة الملك ١-١٠".
 - goal: هدف جديد. title، note = ليش.
 الأشخاص المعروفين: ${people.join("، ") || "لا أحد بعد"}. إذا الاسم يطابق واحد منهم استخدم نفس الكتابة.
-الحقول اللي ما تنطبق خلها null. ما تخترع معلومات مو في الكلام.`,
+الحقول اللي ما تنطبق خلها null. ما تخترع معلومات مو في الكلام.`;
+
+  const sample = await sampler();
+  if (sample) {
+    const raw = await sample.json<unknown>(`${system}
+
+رد فقط بكائن JSON بهذا الشكل بالضبط:
+{"reply": "رد قصير وودود", "actions": [{"kind": "expense|task|journal|interaction|debt|study|memorize|goal", "summary": "وصف قصير", "title": null, "text": null, "amount": null, "category": null, "note": null, "date": null, "time": null, "personName": null, "direction": null, "mood": null, "minutes": null, "subject": null}]}
+
+كلام المستخدم:
+"""${input}"""`, { cache: false });
+    const parsed = CaptureResult.safeParse(normalize(raw));
+    if (!parsed.success) throw new Error("ما قدرت أفهم الكلام، جرّب تكتبه بشكل ثاني.");
+    return parsed.data;
+  }
+
+  const res = await client().beta.messages.parse({
+    model: MODEL,
+    max_tokens: 4000,
+    ...FALLBACK,
+    output_config: { effort: "low", format: betaZodOutputFormat(CaptureResult) },
+    system,
     messages: [{ role: "user", content: input }],
   });
   if (res.stop_reason === "refusal") throw new Error("المساعد ما قدر يعالج هذا الطلب.");
   if (!res.parsed_output) throw new Error("ما قدرت أفهم الكلام، جرّب تكتبه بشكل ثاني.");
   return res.parsed_output;
+}
+
+/** يكمّل الحقول الناقصة بـ null عشان يمر من التحقق */
+function normalize(raw: unknown): unknown {
+  if (!raw || typeof raw !== "object") return raw;
+  const r = raw as { reply?: unknown; actions?: unknown };
+  const keys = Object.keys(CaptureAction.shape);
+  const actions = Array.isArray(r.actions) ? r.actions.map((a) => {
+    const o: Record<string, unknown> = {};
+    for (const k of keys) o[k] = (a as Record<string, unknown>)?.[k] ?? null;
+    if (typeof o.amount === "string") o.amount = Number(o.amount) || null;
+    if (typeof o.minutes === "string") o.minutes = Number(o.minutes) || null;
+    if (typeof o.mood === "number") o.mood = Math.round(o.mood);
+    if (typeof o.summary !== "string") o.summary = String(o.title ?? o.text ?? "");
+    return o;
+  }) : [];
+  return { reply: typeof r.reply === "string" ? r.reply : "", actions };
 }
 
 /* ---------- نص متدفق (محادثة وتحليل) ---------- */
@@ -159,12 +211,27 @@ export async function streamReply(opts: {
   withContext?: boolean;
 }): Promise<string> {
   const ctx = opts.withContext === false ? "" : await buildContext();
+  const system = `${persona()}\n\n${opts.task}${ctx ? `\n\n# بيانات المستخدم\n${ctx}` : ""}`;
+
+  const sample = await sampler();
+  if (sample) {
+    const { text } = await sample(
+      [{ role: "user", content: `# تعليماتك (ثابتة)\n${system}` }, ...opts.messages],
+      {
+        cache: false,
+        modelTier: opts.effort === "high" ? "complex" : "default",
+        onText: ({ text }) => opts.onText(text),
+      },
+    );
+    return text;
+  }
+
   const stream = client().beta.messages.stream({
     model: MODEL,
     max_tokens: 16000,
     ...FALLBACK,
     output_config: { effort: opts.effort ?? "medium" },
-    system: `${persona()}\n\n${opts.task}${ctx ? `\n\n# بيانات المستخدم\n${ctx}` : ""}`,
+    system,
     messages: opts.messages,
   });
   let text = "";

@@ -2,7 +2,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { analyzePerson, friendlyError } from "../ai";
 import { db, type Person } from "../db";
-import { BackHeader, Header, Markdown, Sheet, useAIText } from "../ui";
+import { BackHeader, Header, Markdown, Sheet, useAIText, ask } from "../ui";
 import { daysBetween, shortDate, todayISO } from "../utils";
 
 const RELATIONS = ["عائلة", "صديق", "زميل", "شغل", "معرفة"];
@@ -62,7 +62,7 @@ function PersonDetail({ person, onBack }: { person: Person; onBack: () => void }
           <div className="list-item" key={i.id} style={{ alignItems: "flex-start" }}>
             <span className="chip" style={{ flex: "none" }}>{shortDate(i.date)}</span>
             <div className="grow" style={{ whiteSpace: "pre-wrap" }}>{i.text}</div>
-            <button className="btn danger" onClick={() => confirm("تحذف؟") && db.interactions.delete(i.id!)}>✕</button>
+            <button className="btn danger" onClick={async () => (await ask("تحذف؟")) && db.interactions.delete(i.id!)}>✕</button>
           </div>
         ))}
       </div>
@@ -92,7 +92,7 @@ function PersonEditor({ open, onClose, person, onDeleted }: { open: boolean; onC
       <label className="field"><span>ملاحظات عنه</span><textarea className="textarea" value={notes} onChange={(e) => setNotes(e.target.value)} placeholder="اهتماماته، شغله، أشياء مهمة..." /></label>
       <button className="btn primary block" onClick={save} disabled={!name.trim()}>احفظ</button>
       {person?.id && <button className="btn danger block" style={{ marginTop: 8 }} onClick={async () => {
-        if (!confirm(`تحذف ${person.name} وكل سجله؟`)) return;
+        if (!(await ask(`تحذف ${person.name} وكل سجله؟`))) return;
         await db.interactions.where("personId").equals(person.id!).delete();
         await db.people.delete(person.id!);
         onClose(); onDeleted?.();

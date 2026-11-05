@@ -1,7 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { db, type Debt } from "../db";
-import { BackHeader, Progress, Sheet } from "../ui";
+import { BackHeader, Progress, Sheet, ask } from "../ui";
 import { EXPENSE_CATEGORIES, money, shortDate, todayISO } from "../utils";
 
 function ExpenseEditor({ open, onClose }: { open: boolean; onClose: () => void }) {
@@ -72,7 +72,7 @@ function PayDebt({ debt, onClose }: { debt: Debt | null; onClose: () => void }) 
           await db.debts.update(debt.id!, { paid: Math.min(debt.amount, debt.paid + Number(amount)) }); onClose();
         }}>سجّل الدفعة</button>
       </div>
-      <button className="btn danger block" style={{ marginTop: 8 }} onClick={async () => { if (confirm("تحذف الدين؟")) { await db.debts.delete(debt.id!); onClose(); } }}>حذف</button>
+      <button className="btn danger block" style={{ marginTop: 8 }} onClick={async () => { if (await ask("تحذف الدين؟")) { await db.debts.delete(debt.id!); onClose(); } }}>حذف</button>
     </Sheet>
   );
 }
@@ -120,7 +120,7 @@ export function Money({ onBack }: { onBack: () => void }) {
               <div className="list-item" key={e.id}>
                 <div className="grow">{e.note || e.category}<div className="muted small">{e.category} · {shortDate(e.date)}</div></div>
                 <b>{money(e.amount)}</b>
-                <button className="btn danger" onClick={() => confirm("تحذف؟") && db.expenses.delete(e.id!)}>✕</button>
+                <button className="btn danger" onClick={async () => (await ask("تحذف؟")) && db.expenses.delete(e.id!)}>✕</button>
               </div>
             ))}
           </div>

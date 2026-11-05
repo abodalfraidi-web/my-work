@@ -9,7 +9,8 @@ import { People } from "./pages/People";
 import { Settings } from "./pages/Settings";
 import { Study } from "./pages/Study";
 import { Today } from "./pages/Today";
-import { Header } from "./ui";
+import { inArtifact } from "./platform";
+import { AskHost, Header } from "./ui";
 import { settings } from "./utils";
 
 type Page = "today" | "goals" | "chat" | "more" | "people" | "money" | "journal" | "study" | "insights" | "settings";
@@ -40,7 +41,7 @@ function More({ go }: { go: (p: Page) => void }) {
 }
 
 export function App() {
-  const [page, setPage] = useState<Page>(() => (settings.apiKey ? "today" : "settings"));
+  const [page, setPage] = useState<Page>(() => (settings.apiKey || inArtifact ? "today" : "settings"));
   const [capture, setCapture] = useState(false);
   const go = (p: string) => { setPage(p as Page); window.scrollTo(0, 0); };
   const back = () => go("more");
@@ -72,6 +73,7 @@ export function App() {
         <button className={tab === "more" ? "on" : ""} onClick={() => go("more")}><span className="i">☰</span>المزيد</button>
       </nav>
       <CaptureSheet open={capture} onClose={() => setCapture(false)} />
+      <AskHost />
     </div>
   );
 }

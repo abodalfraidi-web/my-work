@@ -1,3 +1,5 @@
+import { saveFile } from "./platform";
+
 export function todayISO(d = new Date()): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
@@ -55,7 +57,7 @@ export function uid(): string {
 }
 
 /** ملف تقويم يفتحه الآيفون ويضيف الموعد مع تنبيه */
-export function downloadICS(title: string, date: string, time: string | null): void {
+export function downloadICS(title: string, date: string, time: string | null): Promise<boolean> {
   const [y, m, d] = date.split("-");
   const [hh, mm] = (time ?? "09:00").split(":");
   const start = `${y}${m}${d}T${hh}${mm}00`;
@@ -70,12 +72,7 @@ export function downloadICS(title: string, date: string, time: string | null): v
     "BEGIN:VALARM", "TRIGGER:PT0M", "ACTION:DISPLAY", `DESCRIPTION:${esc(title)}`, "END:VALARM",
     "END:VEVENT", "END:VCALENDAR",
   ].join("\r\n");
-  const blob = new Blob([ics], { type: "text/calendar;charset=utf-8" });
-  const a = document.createElement("a");
-  a.href = URL.createObjectURL(blob);
-  a.download = "reminder.ics";
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(a.href), 5000);
+  return saveFile("reminder.ics", ics, "text/calendar");
 }
 
 export const settings = {

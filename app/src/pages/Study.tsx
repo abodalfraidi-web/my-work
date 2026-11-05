@@ -1,7 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useState } from "react";
 import { db } from "../db";
-import { BackHeader, useToast } from "../ui";
+import { BackHeader, useToast, ask } from "../ui";
 import { addDays, shortDate, todayISO } from "../utils";
 import { reviewMemo } from "./Today";
 
@@ -98,7 +98,7 @@ export function Study({ onBack }: { onBack: () => void }) {
               {due ? <>
                 <button className="btn ghost" style={{ color: "var(--danger)" }} onClick={() => reviewMemo(m, false)}>نسيت</button>
                 <button className="btn green" onClick={() => reviewMemo(m, true)}>✓</button>
-              </> : <button className="btn danger" onClick={() => confirm("تحذف؟") && db.memo.delete(m.id!)}>✕</button>}
+              </> : <button className="btn danger" onClick={async () => (await ask("تحذف؟")) && db.memo.delete(m.id!)}>✕</button>}
             </div>
           );
         })}

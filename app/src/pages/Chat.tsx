@@ -2,7 +2,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useEffect, useRef, useState } from "react";
 import { friendlyError, streamReply } from "../ai";
 import { db } from "../db";
-import { Header, Markdown } from "../ui";
+import { Header, Markdown, ask } from "../ui";
 
 const SUGGESTIONS = [
   "وش المفروض أسوي اليوم؟",
@@ -47,7 +47,7 @@ export function Chat() {
   return (
     <>
       <Header title="المساعد" sub="يعرف أهدافك ويومك وفلوسك وناسك"
-        right={messages && messages.length > 0 ? <button className="btn ghost" onClick={() => confirm("تمسح المحادثة؟") && db.chat.clear()}>مسح</button> : undefined} />
+        right={messages && messages.length > 0 ? <button className="btn ghost" onClick={async () => (await ask("تمسح المحادثة؟")) && db.chat.clear()}>مسح</button> : undefined} />
       <div className="chat" style={{ paddingBottom: 80 }}>
         {messages?.length === 0 && streaming === null && (
           <div className="card">

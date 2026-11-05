@@ -117,3 +117,26 @@ export function useAIText() {
   }
   return { text, setText, busy, error, run };
 }
+
+/* نافذة تأكيد داخل الصفحة (confirm() ما يشتغل داخل claude.ai) */
+let showAsk: ((msg: string, done: (ok: boolean) => void) => void) | null = null;
+export function ask(msg: string): Promise<boolean> {
+  return new Promise((resolve) => (showAsk ? showAsk(msg, resolve) : resolve(window.confirm(msg))));
+}
+export function AskHost() {
+  const [req, setReq] = useState<{ msg: string; done: (ok: boolean) => void } | null>(null);
+  useEffect(() => {
+    showAsk = (msg, done) => setReq({ msg, done });
+    return () => { showAsk = null; };
+  }, []);
+  if (!req) return null;
+  const finish = (ok: boolean) => { req.done(ok); setReq(null); };
+  return (
+    <Sheet open onClose={() => finish(false)} title={req.msg}>
+      <div className="grid2">
+        <button className="btn" onClick={() => finish(false)}>إلغاء</button>
+        <button className="btn" style={{ background: "var(--danger)", color: "#fff" }} onClick={() => finish(true)}>تأكيد</button>
+      </div>
+    </Sheet>
+  );
+}

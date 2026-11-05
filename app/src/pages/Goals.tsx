@@ -2,7 +2,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { friendlyError, planGoal } from "../ai";
 import { db, type Goal } from "../db";
-import { BackHeader, Check, Header, Markdown, Progress, Sheet, useAIText, useToast } from "../ui";
+import { BackHeader, Check, Header, Markdown, Progress, Sheet, useAIText, useToast, ask } from "../ui";
 import { daysBetween, todayISO, uid } from "../utils";
 
 const CATS = ["شخصي", "دراسة", "مالي", "صحة", "دين وروحانيات", "عمل", "علاقات"];
@@ -117,7 +117,7 @@ function GoalDetail({ goal, onBack }: { goal: Goal; onBack: () => void }) {
         <button className="btn green" onClick={() => update({ status: goal.status === "done" ? "active" : "done" })}>{goal.status === "done" ? "↩️ إرجاع" : "🏆 تحقق!"}</button>
       </div>
       <button className="btn danger block" style={{ marginTop: 8 }} onClick={async () => {
-        if (confirm("تحذف الهدف؟")) { await db.goals.delete(goal.id!); onBack(); }
+        if (await ask("تحذف الهدف؟")) { await db.goals.delete(goal.id!); onBack(); }
       }}>حذف الهدف</button>
     </>
   );
