@@ -119,6 +119,12 @@ export async function buildContext(): Promise<string> {
   for (const b of books) L.push(`- [${b.status}] ${b.title} (${b.lang === "en" ? "إنجليزي" : "عربي"}) صفحة ${b.currentPage}/${b.totalPages || "?"}`);
   L.push(`كلمات إنجليزية محفوظة: ${vocabCount}`);
 
+  const profile = await getProfile();
+  if (profile.facts.length) {
+    L.push("\n## ذاكرتك عنه (أشياء عرفتها من محادثاتكم)");
+    for (const f of profile.facts) L.push(`- ${f}`);
+  }
+
   if (lastMe) {
     L.push(`\n## آخر تحليل كتبته عنه (${new Date(lastMe.createdAt).toISOString().slice(0, 10)})`);
     L.push(lastMe.content.slice(0, 1500));
@@ -510,4 +516,38 @@ Never switch to Arabic except for that correction line.`,
     effort: "low",
     withContext: false,
   });
+}
+
+
+/* ---------- ذاكرة الشخصية ---------- */
+
+const PROFILE_KEY = "profile:main";
+export interface ProfileT { facts: string[]; updatedAt: number }
+
+export async function getProfile(): Promise<ProfileT> {
+  const row = await db.daily.get(PROFILE_KEY);
+  return (row?.data as ProfileT) ?? { facts: [], updatedAt: 0 };
+}
+
+export function saveProfile(p: ProfileT) {
+  return db.daily.put({ key: PROFILE_KEY, data: p });
+}
+
+const ProfileUpdate = z.object({ facts: z.array(z.string()) });
+
+/** يحدّث ذاكرة الشخصية من محادثة جديدة */
+export async function updateProfileFrom(conversation: { role: "user" | "assistant"; content: string }[]) {
+  const userLines = conversation.filter((m) => m.role === "user").map((m) => m.content).join("\n");
+  if (userLines.trim().length < 15) return;
+  const current = await getProfile();
+  const res = await askJSON(`أنت تبني ذاكرة شخصية عن المستخدم عشان تفهمه أكثر مع الوقت.
+الذاكرة الحالية:
+${current.facts.map((f) => "- " + f).join("\n") || "(فاضية)"}
+
+محادثة جديدة معه:
+${conversation.map((m) => (m.role === "user" ? "هو: " : "أنت: ") + m.content).join("\n").slice(-6000)}
+
+حدّث الذاكرة: أضف الحقائق الجديدة المفيدة عنه (طباعه، شخصيته، مشاعره المتكررة، اهتماماته، عاداته، ناسه وعلاقته فيهم، أهدافه، مخاوفه، أسلوب كلامه، أشياء يحبها أو يكرهها)، وعدّل اللي تغيّر، واحذف المكرر. كل حقيقة جملة قصيرة واضحة. لا تخترع شي ما قاله. حد أقصى 80 حقيقة، الأهم أولاً.
+رد فقط بـ JSON: {"facts": ["...", "..."]}`, ProfileUpdate, "quick");
+  await saveProfile({ facts: res.facts.slice(0, 80), updatedAt: Date.now() });
 }

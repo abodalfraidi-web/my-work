@@ -253,3 +253,8 @@ label.field > span { display: block; font-size: 13px; color: var(--muted); margi
 .voice-field { position: relative; }
 .voice-field textarea { padding-bottom: 54px; }
 .voice-field-mic { position: absolute; bottom: 8px; inset-inline-end: 8px; }
+
+.talk-card { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px; margin-bottom: 12px; border-radius: 22px; cursor: pointer; font: inherit; color: var(--text);
+  background: linear-gradient(120deg, color-mix(in srgb, var(--gold) 16%, var(--card)), var(--card) 70%); border: 1px solid color-mix(in srgb, var(--gold) 35%, transparent); transition: transform .15s; }
+.talk-card:active { transform: scale(.98); }
+.talk-card b { font-family: var(--font-display); font-size: 17px; }

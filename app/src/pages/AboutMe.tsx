@@ -1,6 +1,6 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
-import { analyzeMe, friendlyError } from "../ai";
+import { analyzeMe, friendlyError, getProfile, saveProfile } from "../ai";
 import { db, shrinkImage } from "../db";
 import { Icon } from "../Icon";
 import { ask, BackHeader, Markdown, PhotoPicker, useAIText, useToast } from "../ui";
@@ -19,6 +19,7 @@ export function AboutMe({ onBack }: { onBack: () => void }) {
     expenses: await db.expenses.count(),
   }), []);
   const latest = history?.[0];
+  const profile = useLiveQuery(() => getProfile(), []);
   const shown = ai.text || latest?.content || "";
 
   async function pickAvatar(files: File[]) {
@@ -48,6 +49,19 @@ export function AboutMe({ onBack }: { onBack: () => void }) {
           <div className="muted small">{stats ? `${stats.journal} يومية · ${stats.tasks} مهمة · ${stats.people} شخص · ${stats.expenses} مصروف` : ""}</div>
           <div style={{ marginTop: 6 }}><PhotoPicker onPick={pickAvatar} label="صورتي" multiple={false} /></div>
         </div>
+      </div>
+
+      <div className="card">
+        <h3>وش أعرف عنك <span className="badge teal">{profile?.facts.length ?? 0}</span></h3>
+        {!profile?.facts.length ? <div className="muted small">ذاكرتي فاضية. سولف معي بالمحادثة الصوتية، وأتعلم عنك من كلامك.</div> : (
+          profile.facts.map((f, i) => (
+            <div className="list-item" key={i}>
+              <span className="grow">{f}</span>
+              <button className="btn danger" aria-label="احذف هذي المعلومة" onClick={() => saveProfile({ facts: profile.facts.filter((_, j) => j !== i), updatedAt: Date.now() })}><Icon name="x" size={14} /></button>
+            </div>
+          ))
+        )}
+        {(profile?.facts.length ?? 0) > 0 && <p className="muted small" style={{ marginBottom: 0 }}>المساعد يستخدم هذي المعلومات في كل محادثة. احذف أي شي غلط أو ما تبيه.</p>}
       </div>
 
       <div className="hero">

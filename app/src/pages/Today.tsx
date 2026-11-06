@@ -127,6 +127,15 @@ export function Today({ go }: { go: (p: string) => void }) {
           : !brief.busy && <div className="muted small" style={{ marginTop: 6 }}>المساعد يشوف أهدافك ومهامك ويرتّب لك يومك.</div>}
       </div>
 
+      <button className="talk-card" onClick={() => { try { sessionStorage.setItem("masari.openVoice", "1"); } catch { /* ignore */ } go("chat"); }}>
+        <span className="mic md" style={{ pointerEvents: "none" }}><Icon name="mic" size={20} /></span>
+        <span className="grow" style={{ textAlign: "start" }}>
+          <b>سولف <span className="hl">معي</span></b>
+          <span className="muted small" style={{ display: "block" }}>احكي لي عن يومك بصوتك، وأفهمك وأسجّل المهم</span>
+        </span>
+        <Icon name="chevron" size={18} />
+      </button>
+
       <div className="card row" style={{ gap: 14 }}>
         <Rings tasks={tasks?.length ? doneCount / tasks.length : 0} learn={(xp ?? 0) / DAILY_GOAL} habits={habitStats?.total ? habitStats.done / habitStats.total : 0} />
         <div className="grow stack" style={{ fontSize: 14 }}>
