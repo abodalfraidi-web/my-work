@@ -1,65 +1,89 @@
 ---
 name: saudi-analyst
-description: Saudi stock analyst (Tadawul). Answers the user's questions about Saudi stocks with real numbers - price, 52-week range, 1-year return, quarterly revenue, net income, EPS, margins, year-over-year growth, P/E, debt to equity - and compares companies side by side. Analysis only; the user does not have to buy anything and nothing is ever traded. Use when the user asks in Arabic or English about any Saudi company or Tadawul code, e.g. "وش رأيك في أرامكو", "حلل الراجحي", "قارن بين STC وموبايلي", "كم مكرر ربحية سابك", "هل أرباح المراعي تنمو", "2222", "Tadawul", "Saudi stocks".
+description: Saudi stock analyst (Tadawul). Answers the user's questions about Saudi stocks with real numbers from Argaam and Yahoo - latest results and the company's own reasons, margins, growth, P/E, ROE, dividends - plus Japanese candlestick and technical analysis (patterns, trend, RSI, MACD, support and resistance) and a scenario forecast with price ranges and probabilities. Analysis only; nothing is ever traded. Use when the user asks in Arabic or English about any Saudi company or Tadawul code, e.g. "حلل لوبريف", "وش رأيك في أرامكو", "الشارت الياباني للراجحي", "توقعك لسابك", "قارن بين STC وموبايلي", "كم مكرر ربحية سابك", "2222", "Tadawul", "Saudi stocks".
 ---
 
 # Saudi Analyst / محلل الأسهم السعودية
 
-Analysis for the user's questions about Saudi stocks. Never place, suggest placing,
-or size trades unless the user explicitly asks. Not financial advice: say so once,
-briefly, not in every message.
+Analysis only. Never place or push trades. Reply in the user's language (usually
+Saudi dialect), numbers in Western digits, amounts in SAR. Say once, briefly,
+that it is not investment advice.
 
-Reply in the user's language (usually Saudi Arabic dialect). Keep numbers in
-Western digits, amounts in SAR with B (billion) / M (million).
+## 1. Identify the company
 
-## 1. Find the code
+Tadawul codes are 4 digits (2222 أرامكو, 1120 الراجحي, 1180 الأهلي, 2010 سابك,
+7010 STC, 1211 معادن, 2280 المراعي, 2223 لوبريف, 1150 الإنماء, 4190 جرير,
+2082 أكوا, 1010 بنك الرياض, 4013 الحبيب). If unsure, web-search and confirm the
+name the scripts print.
 
-Tadawul codes are 4 digits. Common ones: 2222 أرامكو, 1120 الراجحي, 1180 الأهلي,
-2010 سابك, 7010 STC, 1211 معادن, 2280 المراعي, 1150 الإنماء, 4190 جرير,
-2082 أكوا باور, 1010 بنك الرياض, 4013 سليمان الحبيب. If unsure of a code,
-search the web (argaam.com or saudiexchange.sa) and confirm the company name the
-script prints matches what the user meant.
+Argaam uses its own company id. If the code is not in `argaam_ids.json`,
+web-search `argaam.com companyoverview <company name>`, take the number after
+`/companyid/`, and add it to `argaam_ids.json`, then commit it.
 
-## 2. Pull the numbers
+## 2. Collect data (run all three, from the repo root)
 
 ```bash
-python3 .claude/skills/saudi-analyst/saudi.py 2222            # one company
-python3 .claude/skills/saudi-analyst/saudi.py 7010 7020 7030  # compare
-python3 .claude/skills/saudi-analyst/saudi.py 2222 --json     # raw data
+S=.claude/skills/saudi-analyst
+python3 $S/argaam.py 2223          # Argaam: price, latest results + company's reasons, ratios, dividends, news
+python3 $S/saudi.py 2223           # Yahoo: 8 quarters, margins, YoY, 4 years, P/E, D/E
+python3 $S/chart.py 2223           # daily candles + indicators (today's candle included)
+python3 $S/chart.py 2223 --weekly  # weekly candles, Saudi Sun-Thu weeks
 ```
 
-It prints price and 52-week range, last 8 quarters (revenue, net income, EPS,
-gross / operating / net margin, YoY growth vs the same quarter a year earlier),
-last 4 years, P/E (trailing twelve months, or last full year if a quarter is
-missing) and debt to equity, plus a comparison table for several codes.
+Argaam is the primary source for results (it mirrors the Tadawul announcement)
+and is always listed in the sources. Yahoo fills history and price series; when
+they disagree, trust Argaam / the Tadawul announcement. Paywalled Argaam articles
+give only the headline: use the headline, never guess the body. For analyst
+consensus, web-search "<company> Q<n> <year> estimate" and name the source.
 
-## 3. Read it like an analyst
+## 3. Fundamental read
 
-- Growth: compare each quarter with the SAME quarter last year, not the one
-  before (seasonality: Ramadan, Hajj, oil prices, summer).
-- Quality: are margins stable or rising? Is profit growing faster or slower than revenue?
-- Valuation: P/E against the company's own history and its sector peers. Run
-  the peers in the same command and compare.
-- Banks (1120, 1180, 1150, 1010...): gross / operating margin is meaningless
-  ("—"). Look at net income growth, net margin, P/E. Debt/equity is not a
-  risk signal for a bank.
-- Oil and petrochemicals (2222, 2010...): results follow oil and product
-  prices. Say that when explaining a jump or a drop.
-- One-off items (a sale, impairment, zakat settlement) can distort a quarter.
-  If a number looks odd, check the company's announcement on argaam.com.
+- Compare each quarter with the same quarter last year AND with the previous
+  quarter. Quote the company's own stated reasons from Argaam.
+- Beat or miss: actual vs consensus if found; it usually explains the day's move.
+- Quality: margins, profit growing faster or slower than revenue, ROE, debt.
+- Valuation: P/E on TTM and on forward earnings, P/B, dividend yield. For
+  cyclicals (oil, petrochemicals, base oils, steel) a low P/E at peak margins
+  is a warning, not a bargain: value them on normalised (mid-cycle) earnings.
+- Banks: ignore gross/operating margin; look at net income growth, P/E, P/B, ROE.
 
-## 4. Answer
+## 4. Japanese candlesticks and technicals
 
-Lead with the answer to what was asked in 2-4 sentences, then the few numbers
-that support it (a small table is fine), then what to watch next (next
-results date, key risk). Say plainly when data is missing.
+Read `chart.py` output on both daily and weekly:
+- Trend first: price vs SMA20/50/200. Patterns only matter in context: a
+  reversal pattern needs a prior trend to reverse, and confirmation by the next
+  candle and by volume (volume vs 20-bar average > 1.5 = meaningful).
+- Patterns detected: doji (incl. gravestone, dragonfly), hammer, hanging man,
+  shooting star, inverted hammer, marubozu, engulfing, harami, piercing line,
+  dark cloud cover, tweezers, morning/evening star, three white soldiers, three
+  black crows. Also read the last 6 raw candles yourself (gaps, long wicks,
+  closes near lows/highs) and say what the candle tells about buyers vs sellers.
+- RSI < 30 oversold / > 70 overbought; MACD histogram turning up or down;
+  ATR% for the normal daily move.
+- Levels: support/resistance clusters (touches = strength). Name the level that
+  would confirm and the level that would invalidate each view.
 
-## Data limits (be honest about these)
+## 5. Forecast (always give one when asked)
 
-- Source is Yahoo Finance's public endpoints: unofficial, delayed ~15 min,
-  and sometimes a quarter is missing. The script shows "—" rather than guessing.
-- Not covered by the script: Shariah compliance lists, dividends history
-  detail, analyst targets, news. For those, search the web (Argaam,
-  Tadawul announcements) and cite the source.
-- Never invent a number. If the script and a web source disagree, say so and
-  prefer the company's official filing on saudiexchange.sa.
+Be concrete and falsifiable, never vague:
+1. Short term (2-6 weeks, technical): expected direction, the levels to watch,
+   and what invalidates it.
+2. 12 months (fundamental): three scenarios - bear / base / bull - each with
+   an EPS assumption, a P/E assumption, the resulting price, and a probability
+   (summing to 100%). Add expected dividends. Show the probability-weighted value
+   and compare it with the current price.
+3. Name the 2-3 things that would change the view (next results, margin data,
+   oil price, a break of a key level).
+Do not claim certainty or to beat professional analysts; the edge is
+transparent numbers and stated assumptions the user can check.
+
+## 6. Answer format
+
+Verdict first (2-4 sentences), then: latest results table, valuation,
+candlestick/technical read, forecast scenarios table, what to watch, sources
+(Argaam link always, plus any others used).
+
+## Data limits
+
+Yahoo is unofficial and delayed ~15 min and can miss quarters ("—", never
+guessed). Argaam public pages only. Never invent a number.
