@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { Icon, type IconName } from "./Icon";
+import { inArtifact } from "./platform";
 import { settings } from "./utils";
 
 const KEY = "masari.onboarded";
@@ -16,9 +17,11 @@ const STEPS: { icon: IconName; title: [string, string]; text: string }[] = [
 export function Onboarding({ onDone }: { onDone: () => void }) {
   const [step, setStep] = useState(0);
   const [name, setName] = useState(settings.name);
+  const [key, setKey] = useState(settings.apiKey);
   const last = step === STEPS.length;
   function finish() {
     if (name.trim()) settings.name = name;
+    if (!inArtifact && key.trim()) settings.apiKey = key;
     try { localStorage.setItem(KEY, "1"); } catch { /* ignore */ }
     onDone();
   }
@@ -38,6 +41,10 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           <h1>وش <span className="hl orange">اسمك؟</span></h1>
           <p>عشان المساعد يكلمك باسمك.</p>
           <input id="onb-name" className="input" style={{ fontSize: 20, padding: 14 }} autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="اسمك" />
+          {!inArtifact && <>
+            <p style={{ marginTop: 8 }}>ومفتاح Claude API (من console.anthropic.com). ينحفظ في جوالك بس.</p>
+            <input id="onb-key" className="input ltr" type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-ant-..." />
+          </>}
         </div>
       )}
       <div className="row" style={{ marginTop: 10 }}>

@@ -5,9 +5,10 @@ import { db } from "./db";
 import { capability, inArtifact, type SampleFn } from "./platform";
 import { addDays, settings, todayISO } from "./utils";
 
-const MODEL = "claude-opus-5-5";
-// إذا رفض النموذج طلب، الـ API يعيده تلقائياً على نموذج بديل
-const FALLBACK = { betas: ["server-side-fallback-2026-07-01"], fallbacks: "default" as const };
+// النسخة المستقلة (بمفتاح API) تستخدم Haiku 5.5: الأسرع والأرخص.
+// Haiku ما عنده نموذج بديل تلقائي إذا رفض طلب، فما نرسل fallbacks.
+const MODEL = "claude-haiku-5-5";
+const FALLBACK = {};
 
 export class NoKeyError extends Error {
   constructor() { super("ما فيه مفتاح Claude. حطّه من الإعدادات."); }
