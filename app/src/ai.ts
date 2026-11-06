@@ -400,3 +400,114 @@ Write only the text. No translation, no notes.`,
     withContext: false,
   });
 }
+
+/* ---------- الإنجليزي اليومي والألغاز ---------- */
+
+async function askJSON<T>(prompt: string, schema: z.ZodType<T>, tier: "quick" | "default" = "default"): Promise<T> {
+  const sample = await sampler();
+  if (sample) {
+    const raw = await sample.json<unknown>(prompt, { modelTier: tier, cache: false });
+    const parsed = schema.safeParse(raw);
+    if (!parsed.success) throw new Error("الرد ما كان بالشكل المطلوب، جرّب مرة ثانية.");
+    return parsed.data;
+  }
+  const res = await client().beta.messages.parse({
+    model: MODEL,
+    max_tokens: 8000,
+    ...FALLBACK,
+    output_config: { effort: tier === "quick" ? "low" : "medium", format: betaZodOutputFormat(schema) },
+    messages: [{ role: "user", content: prompt }],
+  });
+  if (!res.parsed_output) throw new Error("ما وصل رد مفهوم، جرّب مرة ثانية.");
+  return res.parsed_output;
+}
+
+const DailyWords = z.object({
+  words: z.array(z.object({
+    word: z.string(),
+    meaning: z.string().describe("المعنى بالعربي"),
+    example: z.string(),
+    type: z.string().describe("نوع الكلمة بالعربي: اسم، فعل، صفة..."),
+  })),
+});
+export type DailyWordsT = z.infer<typeof DailyWords>;
+
+export function makeDailyWords(level: string, known: string[]) {
+  return askJSON(`أنت معلّم إنجليزي لمتعلم عربي سعودي مستواه ${level}.
+اختر 5 كلمات إنجليزية مفيدة جداً للحياة اليومية والشغل بمستواه، ما تكون من هذي الكلمات اللي يعرفها: ${known.slice(-200).join(", ") || "لا شي"}.
+رد فقط بـ JSON: {"words": [{"word": "...", "meaning": "المعنى بالعربي", "example": "جملة إنجليزية قصيرة وبسيطة", "type": "اسم/فعل/صفة/ظرف"}]}`, DailyWords);
+}
+
+const Trivia = z.object({
+  questions: z.array(z.object({
+    q: z.string(),
+    options: z.array(z.string()),
+    answer: z.number().int().describe("رقم الخيار الصحيح من 0"),
+    explain: z.string(),
+  })),
+});
+export type TriviaT = z.infer<typeof Trivia>;
+
+export function makeTrivia(topics: string[]) {
+  return askJSON(`اكتب 10 أسئلة ثقافة عامة باللغة العربية، مستواها متوسط إلى صعب، في هذي المواضيع: ${topics.join("، ")}.
+لكل سؤال 4 خيارات وجواب واحد صحيح ومؤكد (تجنّب أي سؤال فيه خلاف أو معلومة غير مؤكدة)، مع شرح قصير ومفيد بجملة أو جملتين.
+رد فقط بـ JSON: {"questions": [{"q": "...", "options": ["...", "...", "...", "..."], "answer": 0, "explain": "..."}]}`, Trivia);
+}
+
+const MathProblem = z.object({
+  problem: z.string(),
+  hints: z.array(z.string()),
+  answer: z.string().describe("الجواب النهائي رقم فقط"),
+  explanation: z.string(),
+});
+export type MathProblemT = z.infer<typeof MathProblem>;
+
+export function makeMathProblem(level: number) {
+  return askJSON(`اكتب مسألة رياضيات واحدة بالعربي، مستوى الصعوبة ${level} من 10 (1 = حساب بسيط، 5 = جبر ومنطق، 10 = مسابقات).
+تكون مسألة تفكير ممتعة وواقعية (مو مجرد حساب)، وجوابها النهائي رقم واحد واضح. تأكد من صحة الحل.
+رد فقط بـ JSON: {"problem": "...", "hints": ["تلميح أول خفيف", "تلميح ثاني أوضح"], "answer": "رقم فقط", "explanation": "الحل خطوة بخطوة"}`, MathProblem);
+}
+
+export function correctWriting(text: string, onText: (s: string) => void) {
+  return streamReply({
+    task: `المستخدم يتدرّب على الكتابة بالإنجليزي. صحّح جمله التالية.
+اكتب بالترتيب:
+**التصحيح:** الجمل مصححة بالإنجليزي.
+**الأخطاء:** كل خطأ في نقطة: الغلط ← الصح، مع شرح قصير بالعربي للقاعدة.
+**صياغة أطبع:** نفس المعنى بإنجليزي طبيعي مثل أهل اللغة.
+**كلمة جديدة:** كلمة وحدة مفيدة لها علاقة بكلامه مع معناها.
+إذا جمله صحيحة امدحه وأعطه صياغة أقوى.
+
+جمله:
+${text}`,
+    messages: [{ role: "user", content: "صحّح لي" }],
+    onText,
+    effort: "medium",
+    withContext: false,
+  });
+}
+
+export function translateText(text: string, onText: (s: string) => void) {
+  return streamReply({
+    task: `ترجم النص الإنجليزي التالي للعربي ترجمة طبيعية وواضحة. حافظ على نفس تقسيم الفقرات بالضبط (فقرة مقابل فقرة، مفصولة بسطر فاضي)، وبدون العنوان وبدون أي إضافة.
+
+${text}`,
+    messages: [{ role: "user", content: "ترجم" }],
+    onText,
+    effort: "low",
+    withContext: false,
+  });
+}
+
+export function roleplayReply(scenario: string, level: string, history: { role: "user" | "assistant"; content: string }[], onText: (s: string) => void) {
+  return streamReply({
+    task: `You are an English speaking partner for an Arabic-speaking learner at level ${level}.
+Scenario: ${scenario}. Play the other person in this scenario naturally and briefly (1-3 sentences), using English at the learner's level, and keep the conversation moving with a question.
+After your reply, if the learner's LAST message had mistakes, add a line starting with "✏️" then the corrected sentence, and one short explanation in Arabic. If it was correct, add "✏️ ممتاز" only.
+Never switch to Arabic except for that correction line.`,
+    messages: history,
+    onText,
+    effort: "low",
+    withContext: false,
+  });
+}

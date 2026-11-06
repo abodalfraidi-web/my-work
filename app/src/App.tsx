@@ -5,6 +5,9 @@ import { Onboarding, needsOnboarding } from "./Onboarding";
 import { AboutMe } from "./pages/AboutMe";
 import { Goals } from "./pages/Goals";
 import { Library } from "./pages/Library";
+import { Quran } from "./pages/Quran";
+import { Puzzles } from "./pages/Puzzles";
+import { Habits } from "./pages/Habits";
 import { Insights } from "./pages/Insights";
 import { Journal } from "./pages/Journal";
 import { Money } from "./pages/Money";
@@ -18,10 +21,10 @@ import { startSync } from "./sync";
 import { AskHost, Header } from "./ui";
 import { settings } from "./utils";
 
-type Page = "today" | "goals" | "chat" | "more" | "people" | "money" | "journal" | "study" | "insights" | "settings" | "library" | "me";
+type Page = "today" | "goals" | "chat" | "more" | "people" | "money" | "journal" | "study" | "insights" | "settings" | "library" | "me" | "quran" | "puzzles" | "habits";
 const TAB_OF: Record<Page, Page> = {
   today: "today", goals: "goals", chat: "chat", more: "more",
-  people: "more", money: "more", journal: "more", study: "more", insights: "more", settings: "more", library: "more", me: "more",
+  people: "more", money: "more", journal: "more", study: "more", insights: "more", settings: "more", library: "more", me: "more", quran: "more", puzzles: "more", habits: "more",
 };
 
 function More({ go }: { go: (p: Page) => void }) {
@@ -30,7 +33,10 @@ function More({ go }: { go: (p: Page) => void }) {
     ["people", "users", "ناسي", "كل شخص وسجله وتحليله"],
     ["money", "wallet", "فلوسي", "المصاريف والديون"],
     ["journal", "journal", "يومياتي", "وش صار في يومي، مع الصور"],
-    ["library", "library", "مكتبتي", "كتبي، وقراءة وكلمات إنجليزي"],
+    ["library", "translate", "الإنجليزي والكتب", "5 كلمات يومياً، قراءة بصوتك، محادثة، وكتبي"],
+    ["quran", "quran", "القرآن", "تسميع يصحّح أخطاءك، حفظ، وورد يومي"],
+    ["puzzles", "puzzle", "الألغاز", "ثقافة، رياضيات، كلمة اليوم، وحساب ذهني"],
+    ["habits", "habit", "عاداتي وصلواتي", "عادات يومية مع سلسلة الأيام"],
     ["study", "study", "المذاكرة والحفظ", "مؤقت ومراجعة متباعدة"],
     ["insights", "chart", "التحليل", "تقارير وأرقام وتوصيات"],
     ["settings", "settings", "الإعدادات", "الاسم والنسخ الاحتياطي"],
@@ -76,6 +82,9 @@ export function App() {
       {page === "settings" && <Settings onBack={back} />}
       {page === "library" && <Library onBack={back} />}
       {page === "me" && <AboutMe onBack={back} />}
+      {page === "quran" && <Quran onBack={back} />}
+      {page === "puzzles" && <Puzzles onBack={back} />}
+      {page === "habits" && <Habits onBack={back} />}
 
       <nav className="nav">
         <button className={tab === "today" ? "on" : ""} onClick={() => go("today")}><Icon name="home" />اليوم</button>

@@ -1,6 +1,9 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useMemo, useRef, useState } from "react";
-import { friendlyError, lookupWord, writeReading, type WordInfoT } from "../ai";
+import { friendlyError, lookupWord, translateText, writeReading, type WordInfoT } from "../ai";
+import { addXP, speak } from "../progress";
+import { check, normalizeEnglish, type CheckResult } from "../quran";
+import { EnglishDaily } from "./EnglishDaily";
 import { db, type Book, type ReadingText, type VocabWord } from "../db";
 import { Icon } from "../Icon";
 import { ask, BackHeader, Progress, Sheet, useAIText, useToast } from "../ui";
@@ -14,6 +17,10 @@ function pref(key: string, fallback: string): string {
 }
 function setPref(key: string, v: string) {
   try { localStorage.setItem(key, v); } catch { /* ignore */ }
+}
+
+function paragraphsOf(content: string): string[] {
+  return content.split(/\n+/).map((p) => p.trim()).filter((p) => p && !p.startsWith("# "));
 }
 
 export function reviewWord(w: VocabWord, remembered: boolean) {
@@ -142,7 +149,10 @@ function WordSheet({ word, sentence, onClose }: { word: string; sentence: string
   }
   return (
     <Sheet open onClose={onClose}>
-      <h2 className="ltr" style={{ fontFamily: "Georgia, serif" }}>{word}</h2>
+      <div className="row" style={{ justifyContent: "space-between" }}>
+        <h2 className="ltr" style={{ fontFamily: "Georgia, serif", margin: 0 }}>{word}</h2>
+        <button className="icon-btn" aria-label="انطق" onClick={() => speak(word, 0.8)}><Icon name="sound" size={18} /></button>
+      </div>
       {saved && <p><span className="chip green">محفوظة</span> {saved.meaning}</p>}
       {error && <div className="error">{error}</div>}
       {info ? (
@@ -159,18 +169,84 @@ function WordSheet({ word, sentence, onClose }: { word: string; sentence: string
   );
 }
 
+/** يقرأ المستخدم فقرة بصوته (مايك الكيبورد) ونقارنها بالنص */
+function ReadAloud({ paragraph, onClose }: { paragraph: string; onClose: () => void }) {
+  const [said, setSaid] = useState("");
+  const [res, setRes] = useState<CheckResult | null>(null);
+  const expected = paragraph.split(/\s+/).filter((w) => normalizeEnglish(w));
+  async function verify() {
+    const r = check(expected, said.split(/\s+/).filter((w) => normalizeEnglish(w)), normalizeEnglish);
+    setRes(r);
+    await addXP("english", Math.round(r.accuracy * 10));
+  }
+  const bad = res?.words.filter((w) => w.status !== "ok") ?? [];
+  return (
+    <Sheet open onClose={onClose} title="اقرأ بصوتك">
+      <div className="card reader" style={{ fontSize: 17 }}>
+        {res ? res.words.map((w, i) => <span key={i} className={`qw ${w.status}`}>{w.word} </span>) : paragraph}
+      </div>
+      {!res ? <>
+        <textarea id="aloud-input" className="textarea ltr" value={said} onChange={(e) => setSaid(e.target.value)} placeholder="Tap here, then the keyboard mic, and read the paragraph out loud..." />
+        <p className="muted small">خلّ لغة الكيبورد إنجليزي، واضغط المايك، واقرأ الفقرة بصوت واضح.</p>
+        <button className="btn primary block" onClick={verify} disabled={!said.trim()}>صحّح قراءتي</button>
+      </> : <>
+        <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
+          <span className={`chip ${res.accuracy >= 0.9 ? "green" : "gold"}`}>دقة {Math.round(res.accuracy * 100)}%</span>
+          {bad.length === 0 && <span className="chip green">قراءة ممتازة</span>}
+        </div>
+        {bad.length > 0 && (
+          <div className="card" style={{ marginTop: 10 }}>
+            <h3>كلمات تحتاج تدريب</h3>
+            {bad.slice(0, 12).map((w, i) => (
+              <div className="list-item" key={i}>
+                <button className="icon-btn" aria-label="انطق" onClick={() => speak(w.word.replace(/[^A-Za-z'-]/g, ""), 0.75)}><Icon name="sound" size={18} /></button>
+                <b className="ltr grow">{w.word}</b>
+                <span className="muted small">{w.status === "missing" ? "ما انقرت" : `سمعتها: ${"heard" in w ? w.heard : ""}`}</span>
+              </div>
+            ))}
+            <p className="muted small" style={{ marginBottom: 0 }}>اسمع النطق الصحيح وعيد القراءة. الكلمة اللي ما يفهمها الآيفون غالباً تحتاج توضيح في النطق.</p>
+          </div>
+        )}
+        <div className="grid2" style={{ marginTop: 10 }}>
+          <button className="btn" onClick={() => { setRes(null); setSaid(""); }}>عيد القراءة</button>
+          <button className="btn primary" onClick={onClose}>تم</button>
+        </div>
+      </>}
+    </Sheet>
+  );
+}
+
 function ReaderView({ text, onBack }: { text: ReadingText; onBack: () => void }) {
   const [pick, setPick] = useState<{ word: string; sentence: string } | null>(null);
+  const [aloud, setAloud] = useState<string | null>(null);
+  const [showTr, setShowTr] = useState(false);
+  const tr = useAIText();
+  const translation = text.translation;
+  const trParas = (translation ?? tr.text).split(/\n\s*\n/).map((p) => p.trim()).filter(Boolean);
+  async function toggleTranslation() {
+    if (showTr) { setShowTr(false); return; }
+    setShowTr(true);
+    if (!translation) {
+      const out = await tr.run((on) => translateText(paragraphsOf(text.content).join("\n\n"), on), friendlyError);
+      if (out) await db.texts.update(text.id!, { translation: out });
+    }
+  }
   const vocab = useLiveQuery(() => db.vocab.toArray(), []);
   const known = useMemo(() => new Set((vocab ?? []).map((v) => v.word)), [vocab]);
-  const paragraphs = text.content.split(/\n+/).filter((p) => p.trim() && !p.startsWith("# "));
+  const paragraphs = paragraphsOf(text.content);
   return (
     <>
       <BackHeader title={text.title} onBack={onBack} />
       <p className="muted small">اضغط على أي كلمة ما تعرفها عشان تشوف معناها وتحفظها. الكلمات اللي تحتها خط موجودة في كلماتي.</p>
+      <div className="grid2" style={{ marginBottom: 10 }}>
+        <button className="btn" onClick={() => speak(paragraphs.join(" "), 0.85)}><Icon name="sound" size={18} /> استمع للنص</button>
+        <button className="btn" onClick={toggleTranslation}><Icon name="translate" size={18} /> {showTr ? "اخفِ الترجمة" : "الترجمة"}</button>
+      </div>
+      {tr.error && <div className="error">{tr.error}</div>}
       <div className="card reader">
         {paragraphs.map((p, i) => (
-          <p key={i}>
+          <div key={i} style={{ marginBottom: 14 }}>
+          <p style={{ margin: 0 }}>
             {p.split(/(\s+)/).map((tok, j) => {
               const clean = tok.replace(/[^A-Za-z'-]/g, "");
               if (!clean) return tok;
@@ -180,8 +256,15 @@ function ReaderView({ text, onBack }: { text: ReadingText; onBack: () => void })
               );
             })}
           </p>
+          {showTr && <p className="muted" style={{ direction: "rtl", textAlign: "right", fontFamily: "var(--font-body)", fontSize: 16, margin: "6px 0 0" }}>{trParas[i] ?? (tr.busy ? "..." : "")}</p>}
+          <div className="row" style={{ gap: 6, marginTop: 6 }}>
+            <button className="pill" style={{ cursor: "pointer" }} onClick={() => speak(p, 0.85)}><Icon name="sound" size={14} /> استمع</button>
+            <button className="pill" style={{ cursor: "pointer" }} onClick={() => setAloud(p)}><Icon name="mic" size={14} /> اقرأها بصوتك</button>
+          </div>
+          </div>
         ))}
       </div>
+      {aloud && <ReadAloud paragraph={aloud} onClose={() => setAloud(null)} />}
       <button className="btn green block" onClick={async () => { await db.texts.update(text.id!, { progress: 1 }); onBack(); }}><Icon name="check" size={18} /> خلصت القراءة</button>
       {pick && <WordSheet word={pick.word} sentence={pick.sentence} onClose={() => setPick(null)} />}
     </>
@@ -274,7 +357,7 @@ function Words() {
         <h3 style={{ justifyContent: "center" }}>مراجعة اليوم <span className="chip gold">{due?.length ?? 0}</span></h3>
         {current ? (
           <>
-            <div className="ltr" style={{ textAlign: "center", fontFamily: "Georgia, serif", fontSize: 30, margin: "12px 0" }}>{current.word}</div>
+            <div className="ltr" style={{ textAlign: "center", fontFamily: "Georgia, serif", fontSize: 30, margin: "12px 0" }} onClick={() => speak(current.word)}>{current.word}</div>
             {flipped ? (
               <>
                 <div style={{ fontSize: 20, fontWeight: 600 }}>{current.meaning}</div>
@@ -305,16 +388,18 @@ function Words() {
 }
 
 export function Library({ onBack }: { onBack: () => void }) {
-  const [tab, setTab] = useState<"books" | "reading" | "words">(() => pref("masari.libTab", "books") as "books");
+  const [tab, setTab] = useState<"today" | "books" | "reading" | "words">(() => pref("masari.libTab", "today") as "today");
   const go = (t: typeof tab) => { setTab(t); setPref("masari.libTab", t); };
   return (
     <>
-      <BackHeader title="مكتبتي" onBack={onBack} />
+      <BackHeader title="الإنجليزي والكتب" onBack={onBack} />
       <div className="chips" style={{ marginBottom: 12 }}>
+        <button className={`chip ${tab === "today" ? "on" : ""}`} onClick={() => go("today")}>إنجليزي اليوم</button>
         <button className={`chip ${tab === "books" ? "on" : ""}`} onClick={() => go("books")}>كتبي</button>
         <button className={`chip ${tab === "reading" ? "on" : ""}`} onClick={() => go("reading")}>قراءة إنجليزي</button>
         <button className={`chip ${tab === "words" ? "on" : ""}`} onClick={() => go("words")}>كلماتي</button>
       </div>
+      {tab === "today" && <EnglishDaily />}
       {tab === "books" && <Books />}
       {tab === "reading" && <Reading />}
       {tab === "words" && <Words />}

@@ -126,6 +126,7 @@ export interface ReadingText {
   level: string;
   source: "pasted" | "file" | "ai";
   progress: number; // 0..1
+  translation?: string;
   createdAt: number;
 }
 
@@ -147,6 +148,46 @@ export interface Insight {
   title: string;
   content: string;
   createdAt: number;
+}
+
+export interface Recitation {
+  id?: number;
+  sura: number; // 1..114
+  from: number;
+  to: number;
+  accuracy: number; // 0..1
+  date: string;
+  createdAt: number;
+}
+
+export interface Habit {
+  id?: number;
+  name: string;
+  kind: "habit" | "prayer";
+  order: number;
+  active: boolean;
+  createdAt: number;
+}
+
+export interface HabitLog {
+  id?: number;
+  habitId: number;
+  date: string;
+}
+
+/** نقاط الخبرة لكل نشاط (للسلسلة اليومية والحلقات) */
+export interface Activity {
+  id?: number;
+  date: string;
+  area: "english" | "quran" | "puzzle" | "reading" | "focus";
+  xp: number;
+  createdAt: number;
+}
+
+/** محتوى يومي من المساعد (كلمات اليوم، أسئلة اليوم...) عشان ما يتكرر الطلب */
+export interface DailyItem {
+  key: string; // 2026-11-06:words
+  data: unknown;
 }
 
 export interface ChatMessage {
@@ -172,6 +213,11 @@ export const db = new Dexie("masari") as Dexie & {
   texts: EntityTable<ReadingText, "id">;
   vocab: EntityTable<VocabWord, "id">;
   insights: EntityTable<Insight, "id">;
+  recitations: EntityTable<Recitation, "id">;
+  habits: EntityTable<Habit, "id">;
+  habitLogs: EntityTable<HabitLog, "id">;
+  activity: EntityTable<Activity, "id">;
+  daily: EntityTable<DailyItem, "key">;
 };
 
 db.version(1).stores({
@@ -193,12 +239,20 @@ db.version(2).stores({
   vocab: "++id, nextReview, word",
   insights: "++id, kind, createdAt",
 });
+db.version(3).stores({
+  recitations: "++id, sura, date",
+  habits: "++id, order",
+  habitLogs: "++id, date, habitId, [habitId+date]",
+  activity: "++id, date, area",
+  daily: "key",
+});
 
 // الصور ما تدخل في النسخة الاحتياطية النصية (حجمها كبير)
 export const TABLES = [
   "tasks", "goals", "journal", "expenses", "debts",
   "people", "interactions", "study", "memo", "chat",
   "books", "texts", "vocab", "insights",
+  "recitations", "habits", "habitLogs", "activity", "daily",
 ] as const;
 
 export async function exportAll(): Promise<string> {

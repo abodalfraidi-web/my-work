@@ -1,23 +1,25 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
-import { db, type Debt } from "../db";
+import { db, type Debt, type Expense } from "../db";
 import { Icon } from "../Icon";
 import { BackHeader, Progress, Sheet, ask } from "../ui";
 import { EXPENSE_CATEGORIES, money, shortDate, todayISO } from "../utils";
 
-function ExpenseEditor({ open, onClose }: { open: boolean; onClose: () => void }) {
-  const [amount, setAmount] = useState("");
-  const [category, setCategory] = useState(EXPENSE_CATEGORIES[0]);
-  const [note, setNote] = useState("");
-  const [date, setDate] = useState(todayISO());
+function ExpenseEditor({ open, onClose, expense }: { open: boolean; onClose: () => void; expense?: Expense }) {
+  const [amount, setAmount] = useState(expense ? String(expense.amount) : "");
+  const [category, setCategory] = useState(expense?.category ?? EXPENSE_CATEGORIES[0]);
+  const [note, setNote] = useState(expense?.note ?? "");
+  const [date, setDate] = useState(expense?.date ?? todayISO());
   async function save() {
     const n = Number(amount);
     if (!n) return;
-    await db.expenses.add({ amount: n, category, note: note.trim(), date, createdAt: Date.now() });
-    setAmount(""); setNote(""); onClose();
+    if (expense?.id) await db.expenses.update(expense.id, { amount: n, category, note: note.trim(), date });
+    else await db.expenses.add({ amount: n, category, note: note.trim(), date, createdAt: Date.now() });
+    if (!expense) { setAmount(""); setNote(""); }
+    onClose();
   }
   return (
-    <Sheet open={open} onClose={onClose} title="مصروف">
+    <Sheet open={open} onClose={onClose} title={expense ? "تعديل المصروف" : "مصروف"}>
       <input className="input" style={{ fontSize: 28, textAlign: "center", fontWeight: 700 }} inputMode="decimal" autoFocus placeholder="0" value={amount} onChange={(e) => setAmount(e.target.value)} />
       <div className="chips" style={{ margin: "12px 0" }}>
         {EXPENSE_CATEGORIES.map((c) => <button key={c} className={`chip ${c === category ? "on" : ""}`} onClick={() => setCategory(c)}>{c}</button>)}
@@ -83,6 +85,7 @@ export function Money({ onBack }: { onBack: () => void }) {
   const [addExp, setAddExp] = useState(false);
   const [addDebt, setAddDebt] = useState(false);
   const [paying, setPaying] = useState<Debt | null>(null);
+  const [editingExp, setEditingExp] = useState<Expense | null>(null);
   const month = todayISO().slice(0, 7);
   const expenses = useLiveQuery(() => db.expenses.where("date").startsWith(month).reverse().sortBy("date"), [month]);
   const debts = useLiveQuery(() => db.debts.toArray(), []);
@@ -119,7 +122,7 @@ export function Money({ onBack }: { onBack: () => void }) {
             {expenses?.length === 0 && <div className="empty">ما سجلت مصاريف هالشهر. قل للمايك "صرفت 25 غدا" </div>}
             {(expenses ?? []).map((e) => (
               <div className="list-item" key={e.id}>
-                <div className="grow">{e.note || e.category}<div className="muted small">{e.category} · {shortDate(e.date)}</div></div>
+                <div className="grow" onClick={() => setEditingExp(e)} style={{ cursor: "pointer" }}>{e.note || e.category}<div className="muted small">{e.category} · {shortDate(e.date)}</div></div>
                 <b>{money(e.amount)}</b>
                 <button className="btn danger" onClick={async () => (await ask("تحذف؟")) && db.expenses.delete(e.id!)}><Icon name="x" size={16} /></button>
               </div>
@@ -151,6 +154,7 @@ export function Money({ onBack }: { onBack: () => void }) {
         </>
       )}
       <ExpenseEditor open={addExp} onClose={() => setAddExp(false)} />
+      {editingExp && <ExpenseEditor key={editingExp.id} open expense={editingExp} onClose={() => setEditingExp(null)} />}
       <DebtEditor open={addDebt} onClose={() => setAddDebt(false)} />
       <PayDebt key={paying?.id} debt={paying} onClose={() => setPaying(null)} />
     </>

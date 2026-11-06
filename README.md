@@ -11,3 +11,6 @@
 ```bash
 cd app && npm install && npm run dev
 ```
+
+## مصدر نص القرآن
+نص المصحف في `app/src/quran/quran-simple.txt` من [مشروع تنزيل](https://tanzil.net)، منقول كما هو بدون تعديل، مع إشعار الحقوق في نهاية الملف.
