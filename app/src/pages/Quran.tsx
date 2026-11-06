@@ -1,5 +1,6 @@
 import { useLiveQuery } from "dexie-react-hooks";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
+import { useSpeech } from "../speech";
 import { db } from "../db";
 import { Icon } from "../Icon";
 import { addXP } from "../progress";
@@ -72,6 +73,9 @@ function Tasmee({ quran }: { quran: string[][] }) {
   const [hint, setHint] = useState(false);
   const [strict, setStrict] = useState(() => pref("masari.q.strict", "1") === "1");
   const [scores, setScores] = useState<number[]>([]);
+  const [autoMode, setAutoMode] = useState(false); // تسميع متواصل بالمايك المباشر
+  const inputRef = useRef<HTMLTextAreaElement>(null);
+  const speech = useSpeech("ar-SA", (t) => setInput(t));
 
   const ayahNo = from + idx;
   const ayah = quran[sura - 1][ayahNo - 1];
@@ -83,14 +87,47 @@ function Tasmee({ quran }: { quran: string[][] }) {
     setPref("masari.q.sura", String(s)); setPref("masari.q.from", String(f)); setPref("masari.q.to", String(t));
   }
   function start() { setRunning(true); setIdx(0); setInput(""); setResult(null); setScores([]); setHint(false); }
-  function verify() {
-    if (!input.trim()) return;
-    setResult(check(words(ayah), words(input)));
+  function verify(text = input) {
+    if (!text.trim()) return;
+    if (speech.listening) speech.stop();
+    setResult(check(words(ayah), words(text)));
   }
   function next() {
     setScores([...scores, result?.accuracy ?? 0]);
     setIdx(idx + 1); setInput(""); setResult(null); setHint(false);
   }
+
+  /** زر المايك: مباشر إذا مسموح، وإلا يفتح الكيبورد عشان تستخدم مايكه */
+  function micPress() {
+    if (speech.listening) { speech.stop(); verify(); return; }
+    setResult(null); setInput("");
+    if (!speech.blocked && speech.start()) { setAutoMode(true); return; }
+    setAutoMode(false);
+    inputRef.current?.focus();
+  }
+
+  // تصحيح تلقائي: إذا قال عدد كلمات الآية أو أكثر، أو سكت ثانيتين
+  useEffect(() => {
+    if (!running || result || !input.trim()) return;
+    const need = words(ayah).length;
+    if (words(input).length >= need) {
+      const t = setTimeout(() => verify(input), speech.listening ? 900 : 1200);
+      return () => clearTimeout(t);
+    }
+    const t = setTimeout(() => verify(input), 2500);
+    return () => clearTimeout(t);
+  }, [input]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // إذا صحت الآية ننتقل تلقائياً، وفي الوضع المتواصل نرجع نسمع
+  useEffect(() => {
+    if (!passed) return;
+    const t = setTimeout(() => {
+      const last = idx >= to - from;
+      next();
+      if (autoMode && !last) setTimeout(() => speech.start(), 300);
+    }, 1300);
+    return () => clearTimeout(t);
+  }, [passed]); // eslint-disable-line react-hooks/exhaustive-deps
   async function finish(all: number[]) {
     const acc = all.reduce((a, b) => a + b, 0) / Math.max(1, all.length);
     await db.recitations.add({ sura, from, to, accuracy: acc, date: todayISO(), createdAt: Date.now() });
@@ -111,7 +148,7 @@ function Tasmee({ quran }: { quran: string[][] }) {
           <span className="grow">ما أكمل للآية اللي بعدها لين أصحح أخطائي</span>
         </label>
         <button className="btn primary block" onClick={start}><Icon name="mic" size={18} /> ابدأ التسميع</button>
-        <p className="muted small">الآيات تكون مخفية. اضغط على مربع الكتابة، ثم زر المايك في كيبورد الآيفون (خلّ لغة الكيبورد عربي)، وسمّع الآية.</p>
+        <p className="muted small">الآيات تكون مخفية. اضغط زر المايك الكبير وسمّع. التصحيح يصير لحاله لما تسكت، وإذا صحّت الآية ينتقل للي بعدها.</p>
       </>
     );
   }
@@ -154,13 +191,24 @@ function Tasmee({ quran }: { quran: string[][] }) {
         )}
       </div>
 
-      <textarea id="q-input" className="textarea" style={{ fontSize: 20, minHeight: 110 }} value={input} onChange={(e) => setInput(e.target.value)} placeholder="سمّع هنا (مايك الكيبورد)..." />
+      <div className="mic-wrap">
+        <button className={`mic-big ${speech.listening ? "on" : ""}`} onClick={micPress} aria-label={speech.listening ? "وقّف وصحّح" : "سمّع بالمايك"}>
+          <Icon name="mic" size={34} />
+        </button>
+        <div className="muted small" style={{ textAlign: "center" }}>
+          {speech.listening ? "أسمعك... سمّع الآية وأنا أصحح لحالي"
+            : passed ? "ممتاز، ننتقل للآية التالية..."
+            : speech.blocked ? "اضغط الزر، بعدها اضغط مايك الكيبورد وسمّع. أصحح لحالي لما تسكت."
+            : "اضغط الزر وسمّع"}
+        </div>
+      </div>
+      <textarea ref={inputRef} id="q-input" className="textarea" style={{ fontSize: 20, minHeight: 90 }} value={input} onChange={(e) => { setInput(e.target.value); if (result) setResult(null); }} placeholder="كلامك يطلع هنا..." />
       <div className="grid2" style={{ marginTop: 8 }}>
         {!result ? <>
           <button className="btn" onClick={() => setHint(!hint)}>{hint ? "اخفِ التلميح" : "تلميح (أول الحروف)"}</button>
-          <button className="btn primary" onClick={verify} disabled={!input.trim()}>صحّح</button>
+          <button className="btn primary" onClick={() => verify()} disabled={!input.trim()}>صحّح</button>
         </> : <>
-          <button className="btn" onClick={() => { setResult(null); setInput(""); }}>عيد الآية</button>
+          <button className="btn" onClick={() => { setResult(null); setInput(""); if (autoMode) speech.start(); else inputRef.current?.focus(); }}>عيد الآية</button>
           <button className="btn primary" onClick={next} disabled={strict && !passed}>{idx >= to - from ? "خلصت" : "الآية التالية"}</button>
         </>}
       </div>
@@ -168,7 +216,7 @@ function Tasmee({ quran }: { quran: string[][] }) {
       <div className="legend small muted" style={{ marginTop: 8 }}>
         <span className="qw ok">صحيح</span> <span className="qw close">قريب</span> <span className="qw wrong">مختلف</span> <span className="qw missing">ناقص</span>
       </div>
-      <button className="btn ghost" onClick={() => setRunning(false)}>إيقاف</button>
+      <button className="btn ghost" onClick={() => { speech.stop(); setRunning(false); }}>إيقاف</button>
     </>
   );
 }

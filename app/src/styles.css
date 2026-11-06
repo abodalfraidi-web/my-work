@@ -226,3 +226,12 @@ label.field > span { display: block; font-size: 13px; color: var(--muted); margi
 .dots { display: grid; grid-template-columns: repeat(14, 1fr); gap: 4px; }
 .dot { aspect-ratio: 1; border-radius: 50%; border: 1px solid var(--line); background: var(--card-2); padding: 0; cursor: pointer; }
 .dot.on { background: var(--accent); border-color: var(--accent); box-shadow: 0 0 8px var(--glow-teal); }
+
+/* زر المايك الكبير في التسميع */
+.mic-wrap { display: flex; flex-direction: column; align-items: center; gap: 8px; margin: 6px 0 12px; }
+.mic-big { width: 84px; height: 84px; border-radius: 50%; border: 0; cursor: pointer; display: grid; place-items: center;
+  background: radial-gradient(circle at 30% 30%, #5ef0d6, var(--accent) 60%); color: var(--accent-ink);
+  box-shadow: 0 0 0 4px var(--bg), 0 0 0 6px color-mix(in srgb, var(--gold) 70%, transparent), 0 10px 30px color-mix(in srgb, var(--accent) 40%, transparent); transition: transform .15s; }
+.mic-big:active { transform: scale(.94); }
+.mic-big.on { background: radial-gradient(circle at 30% 30%, #ffb27f, var(--gold) 60%); color: #2a1200; animation: pulse 1.4s ease-in-out infinite; }
+@keyframes pulse { 50% { box-shadow: 0 0 0 4px var(--bg), 0 0 0 10px color-mix(in srgb, var(--gold) 40%, transparent), 0 10px 40px color-mix(in srgb, var(--gold) 50%, transparent); } }
