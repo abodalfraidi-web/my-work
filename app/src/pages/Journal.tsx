@@ -1,4 +1,5 @@
 import { useLiveQuery } from "dexie-react-hooks";
+import { VoiceTextarea } from "../MicButton";
 import { useEffect, useState } from "react";
 import { addPhoto, db } from "../db";
 import { ask, BackHeader, PhotoPicker, PhotoThumb, useToast } from "../ui";
@@ -38,7 +39,7 @@ export function Journal({ onBack }: { onBack: () => void }) {
             <button key={i} onClick={() => setMood(i + 1)} style={{ fontSize: 30, border: 0, background: mood === i + 1 ? "var(--card-2)" : "transparent", borderRadius: 14, padding: "4px 8px", opacity: mood === i + 1 ? 1 : 0.45, cursor: "pointer" }}>{m}</button>
           ))}
         </div>
-        <textarea className="textarea" style={{ minHeight: 200 }} value={text} onChange={(e) => setText(e.target.value)} placeholder="وش صار في يومك؟ وش حسيت؟ وش تعلمت؟ (مايك الكيبورد يسهّلها)" />
+        <VoiceTextarea id="journal-text" style={{ minHeight: 200 }} value={text} onChange={setText} placeholder="وش صار في يومك؟ وش حسيت؟ وش تعلمت؟ اضغط المايك وتكلم." />
         {photos && photos.length > 0 && (
           <div className="photos" style={{ marginTop: 10 }}>
             {photos.map((ph) => <PhotoThumb key={ph.id} blob={ph.blob} onDelete={async () => { if (await ask("تحذف الصورة؟")) db.photos.delete(ph.id!); }} />)}

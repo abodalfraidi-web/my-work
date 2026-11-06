@@ -1,5 +1,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
-import { useMemo, useState } from "react";
+import { MicButton, VoiceTextarea } from "../MicButton";
+import { speakOut } from "../speech";
+import { useMemo, useRef, useState } from "react";
 import { correctWriting, friendlyError, makeDailyWords, roleplayReply, type DailyWordsT } from "../ai";
 import { db, type VocabWord } from "../db";
 import { Icon } from "../Icon";
@@ -177,7 +179,7 @@ function Writing() {
     <div className="card">
       <h3>جملتك اليومية</h3>
       <p className="muted small" style={{ marginTop: 0 }}>اكتب 3 جمل بالإنجليزي عن يومك، والمساعد يصححها ويشرح القاعدة بالعربي.</p>
-      <textarea id="en-writing" className="textarea ltr" value={text} onChange={(e) => setText(e.target.value)} placeholder="Today I woke up early and..." />
+      <VoiceTextarea id="en-writing" lang="en-US" className="textarea ltr" value={text} onChange={setText} placeholder="Today I woke up early and... (or tap the mic and speak)" />
       {ai.error && <div className="error" style={{ marginTop: 8 }}>{ai.error}</div>}
       <button className="btn primary block" style={{ marginTop: 8 }} disabled={!text.trim() || ai.busy}
         onClick={async () => { const r = await ai.run((on) => correctWriting(text, on), friendlyError); if (r) await addXP("english", 10); }}>
@@ -205,6 +207,7 @@ function Roleplay() {
   const [input, setInput] = useState("");
   const [streaming, setStreaming] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const rpRef = useRef<HTMLInputElement>(null);
 
   async function send(text: string, base = msgs) {
     if (!scenario || !text.trim()) return;
@@ -213,6 +216,7 @@ function Roleplay() {
     try {
       const reply = await roleplayReply(scenario[2], level(), history, setStreaming);
       setMsgs([...history, { role: "assistant", content: reply }]);
+      speakOut(reply.split("✏️")[0], "en-US", 0.95);
       await addXP("english", 4);
     } catch (e) { setError(friendlyError(e)); } finally { setStreaming(null); }
   }
@@ -240,11 +244,12 @@ function Roleplay() {
           {error && <div className="error">{error}</div>}
         </div>
         <div className="row" style={{ marginTop: 10 }}>
-          <input id="rp-input" className="input ltr" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type or use the mic..."
+          <MicButton lang="en-US" focusRef={rpRef} onText={(t, b) => setInput((b ? b + " " : "") + t)} onDone={(t, b) => send((b ? b + " " : "") + t)} />
+          <input ref={rpRef} id="rp-input" className="input ltr" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type or use the mic..."
             onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) send(input); }} />
           <button className="btn primary" onClick={() => send(input)} disabled={!input.trim() || streaming !== null}><Icon name="send" size={18} /></button>
         </div>
-        <p className="muted small">نصيحة: خلّ لغة الكيبورد إنجليزي واستخدم المايك، كذا تتدرب على النطق بعد.</p>
+        <p className="muted small">اضغط المايك وتكلم بالإنجليزي، ولما تسكت يرسل لحاله ويرد عليك بصوت.</p>
       </Sheet>
     </div>
   );

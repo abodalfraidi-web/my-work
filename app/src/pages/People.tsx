@@ -1,4 +1,5 @@
 import { useLiveQuery } from "dexie-react-hooks";
+import { VoiceTextarea } from "../MicButton";
 import { useState } from "react";
 import { analyzePerson, friendlyError } from "../ai";
 import { db, type Person } from "../db";
@@ -41,7 +42,7 @@ function PersonDetail({ person, onBack }: { person: Person; onBack: () => void }
 
       <div className="card">
         <h3>سجّل تواصل</h3>
-        <textarea className="textarea" value={note} onChange={(e) => setNote(e.target.value)} placeholder="وش صار؟ وش قال؟ (تقدر تستخدم مايك الكيبورد )" />
+        <VoiceTextarea id="person-note" value={note} onChange={setNote} placeholder="وش صار؟ وش قال؟ اضغط المايك واحكي." />
         <button className="btn primary block" style={{ marginTop: 8 }} onClick={addInteraction} disabled={!note.trim()}>احفظ</button>
       </div>
 

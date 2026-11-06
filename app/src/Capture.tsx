@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { MicButton } from "./MicButton";
 import { friendlyError, parseCapture, type CaptureActionT } from "./ai";
 import { addPhoto, db, findOrCreatePerson, shrinkImage } from "./db";
 import { Icon } from "./Icon";
@@ -92,11 +93,12 @@ export function CaptureSheet({ open, onClose }: { open: boolean; onClose: () => 
   }
   function close() { reset(); onClose(); }
 
-  async function analyze() {
-    if (!input.trim() && !images.length) return;
+  const taRef = useRef<HTMLTextAreaElement>(null);
+  async function analyze(text = input) {
+    if (!text.trim() && !images.length) return;
     setBusy(true); setError(null);
     try {
-      const res = await parseCapture(input, EXPENSE_CATEGORIES, images);
+      const res = await parseCapture(text, EXPENSE_CATEGORIES, images);
       setActions(res.actions.map((a) => ({ ...a, _id: uid(), _on: true })));
       setReply(res.reply);
     } catch (e) {
@@ -121,11 +123,18 @@ export function CaptureSheet({ open, onClose }: { open: boolean; onClose: () => 
     <Sheet open={open} onClose={close} title="وش صار اليوم؟">
       {!actions ? (
         <>
+          <div className="mic-wrap">
+            <MicButton size="lg" focusRef={taRef} label="احكي يومك"
+              onText={(t, base) => setInput((base ? base + " " : "") + t)}
+              onDone={(t, base) => analyze((base ? base + " " : "") + t)} silenceMs={2500} />
+            <div className="muted small">اضغط وتكلم عن يومك. لما تسكت أرتّب كلامك لحالي.</div>
+          </div>
           <textarea
+            ref={taRef}
+            id="capture-text"
             className="textarea"
-            style={{ minHeight: 150 }}
-            autoFocus
-            placeholder={"اكتب، أو اضغط المايك في الكيبورد وتكلم...\n\nمثال: صرفت 35 قهوة و120 بنزين، وجلست مع زياد اليوم وقال إنه ناوي يغير شغله، وذكرني بكرة الساعة 4 أتصل على أبوي"}
+            style={{ minHeight: 120 }}
+            placeholder={"أو اكتب هنا...\n\nمثال: صرفت 35 قهوة و120 بنزين، وجلست مع زياد اليوم وقال إنه ناوي يغير شغله، وذكرني بكرة الساعة 4 أتصل على أبوي"}
             value={input}
             onChange={(e) => setInput(e.target.value)}
           />
@@ -143,7 +152,7 @@ export function CaptureSheet({ open, onClose }: { open: boolean; onClose: () => 
           </div>
           <p className="muted small">احكي عن يومك بالتفصيل: وش سويت، مين قابلت، وش صرفت، وش حسيت. المساعد يسجّل كل شي ويعلّق على يومك.</p>
           {error && <div className="error">{error}</div>}
-          <button className="btn primary block" onClick={analyze} disabled={busy || (!input.trim() && !images.length)}>
+          <button className="btn primary block" onClick={() => analyze()} disabled={busy || (!input.trim() && !images.length)}>
             <Icon name="spark" size={18} /> {busy ? "أرتّب كلامك..." : "رتّبها لي"}
           </button>
         </>

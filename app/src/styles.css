@@ -235,3 +235,21 @@ label.field > span { display: block; font-size: 13px; color: var(--muted); margi
 .mic-big:active { transform: scale(.94); }
 .mic-big.on { background: radial-gradient(circle at 30% 30%, #ffb27f, var(--gold) 60%); color: #2a1200; animation: pulse 1.4s ease-in-out infinite; }
 @keyframes pulse { 50% { box-shadow: 0 0 0 4px var(--bg), 0 0 0 10px color-mix(in srgb, var(--gold) 40%, transparent), 0 10px 40px color-mix(in srgb, var(--gold) 50%, transparent); } }
+
+/* زر المايك الموحّد */
+.mic { flex: none; border: 0; border-radius: 50%; display: grid; place-items: center; cursor: pointer; color: var(--accent-ink);
+  background: radial-gradient(circle at 30% 30%, #5ef0d6, var(--accent) 60%); transition: transform .15s; }
+.mic.md { width: 44px; height: 44px; }
+.mic.lg { width: 84px; height: 84px; box-shadow: 0 0 0 4px var(--bg), 0 0 0 6px color-mix(in srgb, var(--gold) 70%, transparent), 0 10px 30px color-mix(in srgb, var(--accent) 40%, transparent); }
+.mic:active { transform: scale(.93); }
+.mic.on { background: radial-gradient(circle at 30% 30%, #ffb27f, var(--gold) 60%); color: #2a1200; animation: pulse 1.4s ease-in-out infinite; }
+.voice-orb { width: 140px; height: 140px; border-radius: 50%; margin: 10px auto; display: grid; place-items: center; border: 0; cursor: pointer; color: var(--accent-ink);
+  background: radial-gradient(circle at 35% 30%, #7ff5e0, var(--accent) 55%, color-mix(in srgb, var(--accent) 60%, var(--bg)));
+  box-shadow: 0 0 60px -6px var(--glow-teal), 0 0 0 2px color-mix(in srgb, var(--accent) 40%, transparent); }
+.voice-orb.listening { animation: breathe 1.6s ease-in-out infinite; background: radial-gradient(circle at 35% 30%, #ffc79f, var(--gold) 55%, color-mix(in srgb, var(--gold) 60%, var(--bg))); color: #2a1200; }
+.voice-orb.speaking { animation: breathe .9s ease-in-out infinite; }
+.voice-orb.thinking { opacity: .7; animation: breathe 2.4s ease-in-out infinite; }
+@keyframes breathe { 50% { transform: scale(1.06); } }
+.voice-field { position: relative; }
+.voice-field textarea { padding-bottom: 54px; }
+.voice-field-mic { position: absolute; bottom: 8px; inset-inline-end: 8px; }

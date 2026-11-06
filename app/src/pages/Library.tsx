@@ -1,4 +1,5 @@
 import { useLiveQuery } from "dexie-react-hooks";
+import { MicButton } from "../MicButton";
 import { useMemo, useRef, useState } from "react";
 import { friendlyError, lookupWord, translateText, writeReading, type WordInfoT } from "../ai";
 import { addXP, speak } from "../progress";
@@ -174,8 +175,9 @@ function ReadAloud({ paragraph, onClose }: { paragraph: string; onClose: () => v
   const [said, setSaid] = useState("");
   const [res, setRes] = useState<CheckResult | null>(null);
   const expected = paragraph.split(/\s+/).filter((w) => normalizeEnglish(w));
-  async function verify() {
-    const r = check(expected, said.split(/\s+/).filter((w) => normalizeEnglish(w)), normalizeEnglish);
+  const aloudRef = useRef<HTMLTextAreaElement>(null);
+  async function verify(text = said) {
+    const r = check(expected, text.split(/\s+/).filter((w) => normalizeEnglish(w)), normalizeEnglish);
     setRes(r);
     await addXP("english", Math.round(r.accuracy * 10));
   }
@@ -186,9 +188,14 @@ function ReadAloud({ paragraph, onClose }: { paragraph: string; onClose: () => v
         {res ? res.words.map((w, i) => <span key={i} className={`qw ${w.status}`}>{w.word} </span>) : paragraph}
       </div>
       {!res ? <>
-        <textarea id="aloud-input" className="textarea ltr" value={said} onChange={(e) => setSaid(e.target.value)} placeholder="Tap here, then the keyboard mic, and read the paragraph out loud..." />
+        <div className="mic-wrap">
+          <MicButton size="lg" lang="en-US" focusRef={aloudRef} label="اقرأ بصوتك" silenceMs={2200}
+            onText={(t) => setSaid(t)} onDone={(t) => verify(t)} />
+          <div className="muted small">اضغط واقرأ الفقرة بصوت عالي. لما تخلص أصحح لحالي.</div>
+        </div>
+        <textarea ref={aloudRef} id="aloud-input" className="textarea ltr" value={said} onChange={(e) => setSaid(e.target.value)} placeholder="Tap here, then the keyboard mic, and read the paragraph out loud..." />
         <p className="muted small">خلّ لغة الكيبورد إنجليزي، واضغط المايك، واقرأ الفقرة بصوت واضح.</p>
-        <button className="btn primary block" onClick={verify} disabled={!said.trim()}>صحّح قراءتي</button>
+        <button className="btn primary block" onClick={() => verify()} disabled={!said.trim()}>صحّح قراءتي</button>
       </> : <>
         <div className="row" style={{ gap: 6, flexWrap: "wrap" }}>
           <span className={`chip ${res.accuracy >= 0.9 ? "green" : "gold"}`}>دقة {Math.round(res.accuracy * 100)}%</span>

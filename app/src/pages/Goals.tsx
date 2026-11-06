@@ -1,4 +1,5 @@
 import { useLiveQuery } from "dexie-react-hooks";
+import { VoiceTextarea } from "../MicButton";
 import { useState } from "react";
 import { friendlyError, planGoal } from "../ai";
 import { db, type Goal } from "../db";
@@ -24,7 +25,7 @@ function GoalEditor({ open, onClose }: { open: boolean; onClose: () => void }) {
   return (
     <Sheet open={open} onClose={onClose} title="هدف جديد ">
       <label className="field"><span>الهدف</span><input className="input" autoFocus value={title} onChange={(e) => setTitle(e.target.value)} placeholder="مثال: أحفظ جزء عمّ" /></label>
-      <label className="field"><span>ليش هذا الهدف مهم لك؟</span><textarea className="textarea" value={why} onChange={(e) => setWhy(e.target.value)} /></label>
+      <label className="field"><span>ليش هذا الهدف مهم لك؟</span><VoiceTextarea id="goal-why" value={why} onChange={setWhy} /></label>
       <label className="field"><span>التصنيف</span>
         <div className="chips">{CATS.map((c) => <button key={c} className={`chip ${c === category ? "on" : ""}`} onClick={() => setCategory(c)}>{c}</button>)}</div>
       </label>
