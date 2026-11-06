@@ -201,6 +201,8 @@ function Tasmee({ quran }: { quran: string[][] }) {
             <Icon name="mic" size={34} />
           </button>
         )}
+        {speech.error && !speech.listening && <div className="error small" style={{ textAlign: "center", margin: 0 }}>{speech.error}</div>}
+        {speech.listening && input && <div className="small" style={{ textAlign: "center", color: "var(--accent)" }}>سمعت: {input}</div>}
         <div className="muted small" style={{ textAlign: "center" }}>
           {speech.listening ? "أسمعك... سمّع الآية وأنا أصحح لحالي"
             : passed ? "ممتاز، ننتقل للآية التالية..."

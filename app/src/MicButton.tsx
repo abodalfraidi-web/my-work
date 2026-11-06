@@ -39,10 +39,13 @@ export function MicButton({ lang = "ar-SA", onText, onDone, focusRef, size = "md
     );
   }
   return (
+    <>
     <button type="button" className={`mic ${size} ${speech.listening ? "on" : ""}`} onClick={press}
       aria-label={speech.listening ? "وقّف" : label ?? "تكلّم"} title={speech.blocked ? "استخدم مايك الكيبورد" : undefined}>
       <Icon name="mic" size={size === "lg" ? 34 : 20} />
     </button>
+    {speech.error && !speech.listening && size === "lg" && <div className="error small" style={{ margin: 0, textAlign: "center" }}>{speech.error}</div>}
+    </>
   );
 }
 

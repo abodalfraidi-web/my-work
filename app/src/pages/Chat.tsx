@@ -157,6 +157,7 @@ function VoiceMode({ onClose }: { onClose: () => void }) {
           </button>
         )}
         <div className="muted">{label}</div>
+        {speech.error && state === "idle" && <div className="error small" style={{ marginTop: 8 }}>{speech.error}</div>}
       </div>
       {heard && state !== "idle" && <div className="bubble user" style={{ margin: "12px 0 0", maxWidth: "100%" }}>{heard}</div>}
       {reply && <div className="bubble assistant" style={{ margin: "8px 0 0", maxWidth: "100%" }}><Markdown text={reply} /></div>}

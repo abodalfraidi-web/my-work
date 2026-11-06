@@ -17,10 +17,25 @@ function getSR(): (new () => Rec) | null {
 }
 
 let blockedForSession = false;
+let everWorked = false; // إذا اشتغل مرة، ما نعتبر أي رفض لاحق منع دائم
+
+/** الآيفون والآيباد: Safari فيها ما يتعامل كويس مع الاستماع المتواصل */
+const isIOS = typeof navigator !== "undefined" &&
+  (/iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1));
+
+export const SPEECH_ERRORS: Record<string, string> = {
+  "no-speech": "ما سمعت صوت. قرّب الجوال وتكلم بصوت أوضح، واضغط الزر مرة ثانية.",
+  "network": "التعرف على الصوت يحتاج إنترنت. تأكد من الاتصال وجرّب مرة ثانية.",
+  "language-not-supported": "اللغة مو مفعّلة للإملاء. من إعدادات الجوال: عام، لوحة المفاتيح، فعّل الإملاء، وأضف لوحة مفاتيح عربية.",
+  "not-allowed": "المايك مرفوض. من إعدادات الجوال: Safari، الميكروفون، اختر سماح. وجرّب مرة ثانية.",
+  "service-not-allowed": "خدمة التعرف على الصوت مقفلة. من إعدادات الجوال: Siri، فعّل Siri أو الإملاء، وجرّب مرة ثانية.",
+  "audio-capture": "ما قدرت أوصل للمايك. تأكد إن ما فيه تطبيق ثاني يستخدمه.",
+};
 
 export function useSpeech(lang: string, onText: (text: string) => void, opts: { onSilence?: (text: string) => void; silenceMs?: number } = {}) {
   const [listening, setListening] = useState(false);
   const [blocked, setBlocked] = useState(() => blockedForSession || !getSR());
+  const [error, setError] = useState<string | null>(null);
   const recRef = useRef<Rec | null>(null);
   const cb = useRef(onText);
   cb.current = onText;
@@ -28,8 +43,16 @@ export function useSpeech(lang: string, onText: (text: string) => void, opts: { 
   silenceCb.current = opts.onSilence;
   const silenceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const lastText = useRef("");
+  const fired = useRef(false);
 
   useEffect(() => () => { recRef.current?.abort(); }, []);
+
+  function finish() {
+    if (silenceTimer.current) clearTimeout(silenceTimer.current);
+    if (fired.current) return;
+    fired.current = true;
+    if (lastText.current) silenceCb.current?.(lastText.current);
+  }
 
   function start() {
     const SR = getSR();
@@ -38,11 +61,15 @@ export function useSpeech(lang: string, onText: (text: string) => void, opts: { 
       recRef.current?.abort();
       const rec = new SR();
       rec.lang = lang;
-      rec.continuous = true;
+      // في الآيفون: جملة وحدة، ويوقف لحاله لما تسكت. في غيره: متواصل
+      rec.continuous = !isIOS;
       rec.interimResults = true;
       let finalText = "";
       lastText.current = "";
+      fired.current = false;
+      setError(null);
       rec.onresult = (e) => {
+        everWorked = true;
         let interim = "";
         for (let i = e.resultIndex; i < e.results.length; i++) {
           const r = e.results[i];
@@ -55,27 +82,28 @@ export function useSpeech(lang: string, onText: (text: string) => void, opts: { 
         // سكوت: إذا ما جا كلام جديد خلال المدة، نوقف ونرسل
         if (silenceCb.current) {
           if (silenceTimer.current) clearTimeout(silenceTimer.current);
-          silenceTimer.current = setTimeout(() => {
-            rec.stop();
-            if (lastText.current) silenceCb.current?.(lastText.current);
-          }, opts.silenceMs ?? 1800);
+          silenceTimer.current = setTimeout(() => { rec.stop(); finish(); }, opts.silenceMs ?? 1800);
         }
       };
       rec.onerror = (e) => {
-        if (e.error === "not-allowed" || e.error === "service-not-allowed" || e.error === "audio-capture") {
+        // بعد ما اشتغل مرة: الرفض غالباً لأن الآيفون يبي ضغطة منك قبل كل استماع
+        if (everWorked && e.error === "not-allowed") setError("اضغط زر المايك عشان تكمّل.");
+        else if (e.error !== "aborted") setError(SPEECH_ERRORS[e.error] ?? `صار خطأ في المايك (${e.error}). جرّب مرة ثانية.`);
+        if (!everWorked && (e.error === "not-allowed" || e.error === "service-not-allowed")) {
           blockedForSession = true;
           setBlocked(true);
         }
         setListening(false);
       };
-      rec.onend = () => { setListening(false); if (silenceTimer.current) clearTimeout(silenceTimer.current); };
+      // لما يوقف (خصوصاً في الآيفون بعد ما تسكت) نرسل اللي انقال
+      rec.onend = () => { setListening(false); finish(); };
       rec.start();
       recRef.current = rec;
       setListening(true);
       return true;
-    } catch {
-      blockedForSession = true;
-      setBlocked(true);
+    } catch (err) {
+      setError(`ما قدرت أشغّل المايك: ${err instanceof Error ? err.message : String(err)}`);
+      if (!everWorked) { blockedForSession = true; setBlocked(true); }
       setListening(false);
       return false;
     }
@@ -87,7 +115,7 @@ export function useSpeech(lang: string, onText: (text: string) => void, opts: { 
     setListening(false);
   }
 
-  return { listening, blocked, start, stop };
+  return { listening, blocked, error, start, stop };
 }
 
 /* نطق الردود بصوت الجهاز */
