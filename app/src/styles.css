@@ -182,7 +182,7 @@ label.field > span { display: block; font-size: 13px; color: var(--muted); margi
 @keyframes pop { 50% { transform: scale(1.18); } }
 
 /* شاشات الترحيب */
-.onb { min-height: calc(100dvh - 140px); display: flex; flex-direction: column; justify-content: center; gap: 14px; }
+.onb { min-height: calc(100dvh - 140px); display: flex; flex-direction: column; justify-content: flex-start; padding-top: max(24px, 8vh); gap: 14px; }
 .onb h1 { font-family: var(--font-display); font-weight: 800; font-size: 34px; line-height: 1.45; padding-bottom: 6px; margin: 0; text-wrap: balance; }
 .onb p { color: var(--muted); margin: 0; line-height: 1.8; }
 .onb .orb { width: 120px; height: 120px; border-radius: 50%; display: grid; place-items: center; margin-bottom: 8px;
