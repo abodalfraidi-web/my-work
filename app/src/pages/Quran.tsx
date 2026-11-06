@@ -192,13 +192,19 @@ function Tasmee({ quran }: { quran: string[][] }) {
       </div>
 
       <div className="mic-wrap">
-        <button className={`mic-big ${speech.listening ? "on" : ""}`} onClick={micPress} aria-label={speech.listening ? "وقّف وصحّح" : "سمّع بالمايك"}>
-          <Icon name="mic" size={34} />
-        </button>
+        {speech.blocked ? (
+          <label htmlFor="q-input" className="mic-big" role="button" aria-label="سمّع بمايك الكيبورد" onClick={() => setResult(null)}>
+            <Icon name="mic" size={34} />
+          </label>
+        ) : (
+          <button className={`mic-big ${speech.listening ? "on" : ""}`} onClick={micPress} aria-label={speech.listening ? "وقّف وصحّح" : "سمّع بالمايك"}>
+            <Icon name="mic" size={34} />
+          </button>
+        )}
         <div className="muted small" style={{ textAlign: "center" }}>
           {speech.listening ? "أسمعك... سمّع الآية وأنا أصحح لحالي"
             : passed ? "ممتاز، ننتقل للآية التالية..."
-            : speech.blocked ? "اضغط الزر، بعدها اضغط مايك الكيبورد وسمّع. أصحح لحالي لما تسكت."
+            : speech.blocked ? "اضغط الزر يطلع الكيبورد، بعدها اضغط المايك اللي في الكيبورد وسمّع. أصحح لحالي لما تسكت."
             : "اضغط الزر وسمّع"}
         </div>
       </div>

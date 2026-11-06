@@ -78,7 +78,7 @@ function VoiceMode({ onClose }: { onClose: () => void }) {
   }, [typed]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const label = {
-    idle: speech.blocked ? "اضغط، بعدها مايك الكيبورد وتكلم" : "اضغط وتكلم",
+    idle: speech.blocked ? "اضغط الدائرة، بعدها اضغط المايك اللي في الكيبورد وتكلم" : "اضغط وتكلم",
     listening: "أسمعك...",
     thinking: "أفكر...",
     speaking: "أتكلم... اضغط عشان تقاطعني",
@@ -89,9 +89,15 @@ function VoiceMode({ onClose }: { onClose: () => void }) {
       <div style={{ textAlign: "center", padding: "10px 0 4px" }}>
         <div className="eyebrow" style={{ textAlign: "center" }}>MASARI · VOICE</div>
         <h2 style={{ margin: "4px 0 0" }}>كلّمني <span className="hl">بصوتك</span></h2>
-        <button className={`voice-orb ${state}`} onClick={tapOrb} aria-label={label}>
-          <Icon name={state === "speaking" ? "sound" : "mic"} size={48} strokeWidth={1.6} />
-        </button>
+        {speech.blocked && state !== "speaking" ? (
+          <label htmlFor="voice-typed" className={`voice-orb ${state}`} role="button" aria-label={label} onClick={() => { try { window.speechSynthesis?.speak(new SpeechSynthesisUtterance("")); } catch { /* ignore */ } }}>
+            <Icon name="mic" size={48} strokeWidth={1.6} />
+          </label>
+        ) : (
+          <button className={`voice-orb ${state}`} onClick={tapOrb} aria-label={label}>
+            <Icon name={state === "speaking" ? "sound" : "mic"} size={48} strokeWidth={1.6} />
+          </button>
+        )}
         <div className="muted">{label}</div>
       </div>
       {heard && <div className="bubble user" style={{ margin: "12px 0 0", maxWidth: "100%" }}>{heard}</div>}
@@ -163,7 +169,7 @@ export function Chat() {
         <div ref={endRef} />
       </div>
       <div className="chat-input">
-        <MicButton focusRef={inputRef} onText={(t, base) => setInput((base ? base + " " : "") + t)} onDone={(t, b) => send((b ? b + " " : "") + t)} />
+        <MicButton focusRef={inputRef} inputId="chat-input" onText={(t, base) => setInput((base ? base + " " : "") + t)} onDone={(t, b) => send((b ? b + " " : "") + t)} />
         <input ref={inputRef} id="chat-input" className="input" value={input} onChange={(e) => setInput(e.target.value)} placeholder="اكتب أو اضغط المايك"
           onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) send(input); }} />
         <button className="btn primary" onClick={() => send(input)} disabled={!input.trim() || streaming !== null} aria-label="إرسال"><Icon name="send" size={18} /></button>

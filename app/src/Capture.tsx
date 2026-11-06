@@ -1,4 +1,4 @@
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { MicButton } from "./MicButton";
 import { friendlyError, parseCapture, type CaptureActionT } from "./ai";
 import { addPhoto, db, findOrCreatePerson, shrinkImage } from "./db";
@@ -89,11 +89,18 @@ export function CaptureSheet({ open, onClose }: { open: boolean; onClose: () => 
   const [images, setImages] = useState<Blob[]>([]);
 
   function reset() {
-    setInput(""); setActions(null); setReply(""); setError(null); setImages([]);
+    setInput(""); setActions(null); setReply(""); setError(null); setImages([]); setAutoTyped(false);
   }
   function close() { reset(); onClose(); }
 
   const taRef = useRef<HTMLTextAreaElement>(null);
+  // إذا الكلام جا من مايك الكيبورد: نرتّب لحالنا بعد ما يسكت ثلاث ثواني
+  const [autoTyped, setAutoTyped] = useState(false);
+  useEffect(() => {
+    if (!autoTyped || !input.trim() || busy) return;
+    const t = setTimeout(() => analyze(input), 3000);
+    return () => clearTimeout(t);
+  }, [input, autoTyped]); // eslint-disable-line react-hooks/exhaustive-deps
   async function analyze(text = input) {
     if (!text.trim() && !images.length) return;
     setBusy(true); setError(null);
@@ -124,10 +131,10 @@ export function CaptureSheet({ open, onClose }: { open: boolean; onClose: () => 
       {!actions ? (
         <>
           <div className="mic-wrap">
-            <MicButton size="lg" focusRef={taRef} label="احكي يومك"
+            <MicButton size="lg" focusRef={taRef} inputId="capture-text" label="احكي يومك" onPress={() => setAutoTyped(true)}
               onText={(t, base) => setInput((base ? base + " " : "") + t)}
               onDone={(t, base) => analyze((base ? base + " " : "") + t)} silenceMs={2500} />
-            <div className="muted small">اضغط وتكلم عن يومك. لما تسكت أرتّب كلامك لحالي.</div>
+            <div className="muted small">اضغط وتكلم عن يومك (إذا طلع الكيبورد، اضغط المايك اللي فيه). لما تسكت أرتّب كلامك لحالي.</div>
           </div>
           <textarea
             ref={taRef}

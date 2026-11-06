@@ -189,7 +189,7 @@ function ReadAloud({ paragraph, onClose }: { paragraph: string; onClose: () => v
       </div>
       {!res ? <>
         <div className="mic-wrap">
-          <MicButton size="lg" lang="en-US" focusRef={aloudRef} label="اقرأ بصوتك" silenceMs={2200}
+          <MicButton size="lg" lang="en-US" focusRef={aloudRef} inputId="aloud-input" label="اقرأ بصوتك" silenceMs={2200}
             onText={(t) => setSaid(t)} onDone={(t) => verify(t)} />
           <div className="muted small">اضغط واقرأ الفقرة بصوت عالي. لما تخلص أصحح لحالي.</div>
         </div>

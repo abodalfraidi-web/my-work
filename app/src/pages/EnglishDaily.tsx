@@ -244,7 +244,7 @@ function Roleplay() {
           {error && <div className="error">{error}</div>}
         </div>
         <div className="row" style={{ marginTop: 10 }}>
-          <MicButton lang="en-US" focusRef={rpRef} onText={(t, b) => setInput((b ? b + " " : "") + t)} onDone={(t, b) => send((b ? b + " " : "") + t)} />
+          <MicButton lang="en-US" focusRef={rpRef} inputId="rp-input" onText={(t, b) => setInput((b ? b + " " : "") + t)} onDone={(t, b) => send((b ? b + " " : "") + t)} />
           <input ref={rpRef} id="rp-input" className="input ltr" value={input} onChange={(e) => setInput(e.target.value)} placeholder="Type or use the mic..."
             onKeyDown={(e) => { if (e.key === "Enter" && !e.nativeEvent.isComposing) send(input); }} />
           <button className="btn primary" onClick={() => send(input)} disabled={!input.trim() || streaming !== null}><Icon name="send" size={18} /></button>

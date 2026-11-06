@@ -7,7 +7,9 @@ import { useSpeech } from "./speech";
  * - إذا المايك المباشر مسموح: يسمع ويكتب الكلام لحاله، ولما تسكت ينادي onDone.
  * - إذا ممنوع: يفتح الكيبورد في الحقل عشان تستخدم مايك الكيبورد.
  */
-export function MicButton({ lang = "ar-SA", onText, onDone, focusRef, size = "md", label, silenceMs }: {
+export function MicButton({ lang = "ar-SA", onText, onDone, focusRef, size = "md", label, silenceMs, inputId, onPress }: {
+  inputId?: string;
+  onPress?: () => void;
   lang?: "ar-SA" | "en-US";
   onText: (spoken: string, base: string) => void;
   onDone?: (spoken: string, base: string) => void;
@@ -19,11 +21,22 @@ export function MicButton({ lang = "ar-SA", onText, onDone, focusRef, size = "md
   const base = useRef("");
   const speech = useSpeech(lang, (t) => onText(t, base.current), { onSilence: onDone ? (t) => onDone(t, base.current) : undefined, silenceMs });
   function press() {
+    onPress?.();
     if (speech.listening) { speech.stop(); return; }
     base.current = focusRef?.current?.value ?? "";
     if (!speech.blocked && speech.start()) return;
     const el = focusRef?.current;
     if (el) { el.focus(); const n = el.value.length; try { el.setSelectionRange(n, n); } catch { /* ignore */ } }
+  }
+  // المايك المباشر ممنوع (مثل داخل تطبيق Claude): الزر يصير مربوط بمربع الكتابة،
+  // فالضغط عليه يفتح الكيبورد بطريقة يسمح فيها الآيفون، وبعدها مايك الكيبورد
+  const targetId = inputId ?? focusRef?.current?.id;
+  if (speech.blocked && targetId) {
+    return (
+      <label htmlFor={targetId} className={`mic ${size}`} aria-label={label ?? "تكلّم"} role="button" onClick={onPress}>
+        <Icon name="mic" size={size === "lg" ? 34 : 20} />
+      </label>
+    );
   }
   return (
     <button type="button" className={`mic ${size} ${speech.listening ? "on" : ""}`} onClick={press}
@@ -44,7 +57,7 @@ export function VoiceTextarea({ value, onChange, lang = "ar-SA", id, placeholder
     <div className="voice-field">
       <textarea ref={ref} id={id} className={className} style={style} value={value} placeholder={placeholder} onChange={(e) => onChange(e.target.value)} />
       <div className="voice-field-mic">
-        <MicButton lang={lang} focusRef={ref} onText={(t, base) => onChange((base ? base + " " : "") + t)} />
+        <MicButton lang={lang} focusRef={ref} inputId={id} onText={(t, base) => onChange((base ? base + " " : "") + t)} />
       </div>
     </div>
   );
