@@ -54,10 +54,24 @@ function More({ go }: { go: (p: Page) => void }) {
 }
 
 export function App() {
-  const [page, setPage] = useState<Page>(() => (settings.apiKey || inArtifact ? "today" : "settings"));
+  // رابط مباشر لصفحة: مثل ‎#quran يفتح القرآن على طول
+  const fromHash = (): Page | null => {
+    const h = window.location.hash.replace("#", "");
+    return h && h in TAB_OF ? (h as Page) : null;
+  };
+  const [page, setPage] = useState<Page>(() => fromHash() ?? "today");
   const [capture, setCapture] = useState(false);
   const [onboarding, setOnboarding] = useState(needsOnboarding);
-  const go = (p: string) => { setPage(p as Page); window.scrollTo(0, 0); };
+  const go = (p: string) => {
+    setPage(p as Page); window.scrollTo(0, 0);
+    // داخل Claude بعض الأسماء محجوزة في الرابط، فنحدّث الرابط في النسخة المستقلة بس
+    if (!inArtifact) { try { history.replaceState(null, "", p === "today" ? location.pathname + location.search : `#${p}`); } catch { /* ignore */ } }
+  };
+  useEffect(() => {
+    const onHash = () => { const p = fromHash(); if (p) setPage(p); };
+    window.addEventListener("hashchange", onHash);
+    return () => window.removeEventListener("hashchange", onHash);
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
   const back = () => go("more");
   
   useEffect(() => {
@@ -67,7 +81,7 @@ export function App() {
   }, []);
 
   const tab = TAB_OF[page];
-  if (onboarding) return <div className="app"><Onboarding onDone={() => { setOnboarding(false); go("today"); }} /></div>;
+  if (onboarding) return <div className="app"><Onboarding onDone={() => { setOnboarding(false); go(fromHash() ?? "today"); }} /></div>;
   return (
     <div className="app">
       {page === "today" && <Today go={go} />}

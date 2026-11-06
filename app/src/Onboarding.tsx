@@ -42,8 +42,8 @@ export function Onboarding({ onDone }: { onDone: () => void }) {
           <p>عشان المساعد يكلمك باسمك.</p>
           <input id="onb-name" className="input" style={{ fontSize: 20, padding: 14 }} autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder="اسمك" />
           {!inArtifact && <>
-            <p style={{ marginTop: 8 }}>ومفتاح Claude API (من console.anthropic.com). ينحفظ في جوالك بس.</p>
-            <input id="onb-key" className="input ltr" type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder="sk-ant-..." />
+            <p style={{ marginTop: 8 }}><b>مفتاح Claude (اختياري).</b> اتركه فاضي إذا ما تبي تدفع: القرآن والعادات والمصاريف والمراجعة والألغاز تشتغل بدونه. وتقدر تضيفه بعدين من الإعدادات.</p>
+            <input id="onb-key" className="input ltr" type="password" autoComplete="off" value={key} onChange={(e) => setKey(e.target.value)} placeholder="اختياري: sk-ant-..." />
           </>}
         </div>
       )}
