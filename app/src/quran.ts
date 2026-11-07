@@ -3,6 +3,7 @@
  * يُعرض النص كما هو بدون أي تعديل. التطبيع (حذف التشكيل) يتم في الذاكرة فقط للمقارنة.
  */
 import suras from "./quran/suras.json";
+import meta from "./quran/meta.json";
 
 export const SURAS = suras as [string, number, string][]; // [الاسم، عدد الآيات، مكية/مدنية]
 
@@ -116,4 +117,81 @@ export function check(expected: string[], heard: string[], norm: (w: string) => 
 
 export function normalizeEnglish(w: string): string {
   return w.toLowerCase().replace(/[^a-z0-9']/g, "").replace(/'/g, "");
+}
+
+/* ---------- الصفحات والأجزاء والمتشابهات (من بيانات تنزيل) ---------- */
+
+export type Ref = [number, number]; // [سورة، آية]
+const PAGES = meta.pages as Ref[]; // بداية كل وجه
+const JUZ = meta.juz as Ref[]; // بداية كل جزء
+export const MUTASHABIHAT = meta.mutashabihat as [number, number, number, number, number][];
+export const PAGE_COUNT = 604;
+
+const cmp = (a: Ref, b: Ref) => a[0] - b[0] || a[1] - b[1];
+
+/** آيات الوجه بالترتيب */
+export function ayatOfPage(page: number): Ref[] {
+  const start = PAGES[page - 1];
+  const end: Ref = page < PAGE_COUNT ? PAGES[page] : [115, 1];
+  const out: Ref[] = [];
+  let [s, a] = start;
+  while (cmp([s, a], end) < 0) {
+    out.push([s, a]);
+    a++;
+    if (a > SURAS[s - 1][1]) { s++; a = 1; }
+  }
+  return out;
+}
+
+export function pageOf(ref: Ref): number {
+  let lo = 0, hi = PAGE_COUNT - 1;
+  while (lo < hi) {
+    const mid = (lo + hi + 1) >> 1;
+    if (cmp(PAGES[mid], ref) <= 0) lo = mid; else hi = mid - 1;
+  }
+  return lo + 1;
+}
+
+export function juzOfPage(page: number): number {
+  const start = PAGES[page - 1];
+  let j = 0;
+  while (j + 1 < JUZ.length && cmp(JUZ[j + 1], start) <= 0) j++;
+  return j + 1;
+}
+
+export function pagesOfJuz(juz: number): number[] {
+  const out: number[] = [];
+  for (let p = 1; p <= PAGE_COUNT; p++) if (juzOfPage(p) === juz) out.push(p);
+  return out;
+}
+
+export function pagesOfSura(sura: number): number[] {
+  const first = pageOf([sura, 1]);
+  const last = pageOf([sura, SURAS[sura - 1][1]]);
+  return Array.from({ length: last - first + 1 }, (_, i) => first + i);
+}
+
+export function refLabel([s, a]: Ref): string {
+  return `${SURAS[s - 1][0]} ${a}`;
+}
+
+/** اسم الوجه: السورة في أوله */
+export function pageLabel(page: number): string {
+  const [s, a] = PAGES[page - 1];
+  return `وجه ${page} · ${SURAS[s - 1][0]}${a > 1 ? ` (${a})` : ""}`;
+}
+
+/* ---------- صوت القارئ (النسخة المستقلة) ---------- */
+
+export const RECITERS: [string, string][] = [
+  ["Alafasy_128kbps", "مشاري العفاسي"],
+  ["Husary_128kbps", "محمود خليل الحصري"],
+  ["Minshawy_Murattal_128kbps", "محمد صديق المنشاوي"],
+  ["Abdul_Basit_Murattal_192kbps", "عبدالباسط عبدالصمد"],
+  ["Maher_AlMuaiqly_64kbps", "ماهر المعيقلي"],
+  ["Saood_ash-Shuraym_128kbps", "سعود الشريم"],
+];
+
+export function audioUrl(reciter: string, [s, a]: Ref): string {
+  return `https://everyayah.com/data/${reciter}/${String(s).padStart(3, "0")}${String(a).padStart(3, "0")}.mp3`;
 }

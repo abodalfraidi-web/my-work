@@ -190,6 +190,33 @@ export interface DailyItem {
   data: unknown;
 }
 
+/** حالة حفظ كل وجه (604 وجه) وجدول مراجعته */
+export interface HifzPage {
+  page: number; // 1..604
+  status: "learning" | "memorized";
+  part: number; // كم جزء خلص من الوجه أثناء الحفظ الجديد
+  step: number; // درجة سلّم المراجعة
+  due: string; // موعد المراجعة الجاية
+  lastScore: number;
+  reps: number;
+  lapses: number;
+  memorizedOn: string | null;
+  updatedAt: number;
+}
+
+/** كلمة غلطت فيها في التسميع */
+export interface QMistake {
+  id?: number;
+  sura: number;
+  ayah: number;
+  word: string;
+  heard: string;
+  kind: "missing" | "wrong";
+  date: string;
+  hits: number; // كم مرة سمّعت الآية صح بعد الغلط
+  resolved: boolean;
+}
+
 export interface ChatMessage {
   id?: number;
   role: "user" | "assistant";
@@ -218,6 +245,8 @@ export const db = new Dexie("masari") as Dexie & {
   habitLogs: EntityTable<HabitLog, "id">;
   activity: EntityTable<Activity, "id">;
   daily: EntityTable<DailyItem, "key">;
+  hifz: EntityTable<HifzPage, "page">;
+  qmistakes: EntityTable<QMistake, "id">;
 };
 
 db.version(1).stores({
@@ -246,6 +275,10 @@ db.version(3).stores({
   activity: "++id, date, area",
   daily: "key",
 });
+db.version(4).stores({
+  hifz: "page, status, due",
+  qmistakes: "++id, resolved, [sura+ayah]",
+});
 
 // الصور ما تدخل في النسخة الاحتياطية النصية (حجمها كبير)
 export const TABLES = [
@@ -253,6 +286,7 @@ export const TABLES = [
   "people", "interactions", "study", "memo", "chat",
   "books", "texts", "vocab", "insights",
   "recitations", "habits", "habitLogs", "activity", "daily",
+  "hifz", "qmistakes",
 ] as const;
 
 export async function exportAll(): Promise<string> {
